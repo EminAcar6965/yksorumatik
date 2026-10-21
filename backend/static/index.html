@@ -16,7 +16,6 @@
     <div class="brand">🧠 <span>YKS Sorumatik</span></div>
     <div style="display:flex; gap:8px; align-items:center;">
       <button id="quota-chip" class="quota-chip" type="button"><span id="quota-text">…</span></button>
-      <button id="auth-btn" class="quota-chip" type="button">Giriş Yap</button>
     </div>
   </header>
 
@@ -74,7 +73,7 @@
         <div id="coach-note" class="coach-note hidden"></div>
       </div>
 
-      <!-- Odaklan (Pomodoro) Kısmı Buraya Taşındı -->
+      <!-- Odaklan (Pomodoro) Kısmı -->
       <div class="glass-card focus-card">
         <div class="card-title">⏱️ Odaklan</div>
         <div class="chips" id="dur-chips">
@@ -117,7 +116,7 @@
       </div>
     </section>
 
-    <!-- 3) KOÇ -->
+    <!-- 3) KOÇ (Kartlar artırıldı) -->
     <section class="view chat-view" id="view-coach">
       <div class="coach-head">
         <button id="coach-back" class="round-btn" type="button">←</button>
@@ -133,6 +132,12 @@
           <button class="quick-btn" type="button" data-prompt="Bana bir haftalık gerçekçi YKS çalışma programı hazırla."><span>🗓️</span>Haftalık program</button>
           <button class="quick-btn" type="button" data-prompt="Netlerimi hızlı artırmak için ne yapmalıyım?"><span>📈</span>Netlerimi artır</button>
           <button class="quick-btn" type="button" data-prompt="Sınav kaygısıyla nasıl başa çıkarım?"><span>😰</span>Sınav kaygısı</button>
+          <button class="quick-btn" type="button" data-prompt="Deneme sınavında süre yönetimi ve soru atlama stratejisi nasıl olmalı?"><span>⏱️</span>Deneme stratejisi</button>
+          <button class="quick-btn" type="button" data-prompt="Etkili tekrar nasıl yapılır? Aralıklı tekrar ve aktif hatırlama yöntemini anlat."><span>🧠</span>Etkili tekrar</button>
+          <button class="quick-btn" type="button" data-prompt="Yanlış yaptığım soruları nasıl analiz etmeliyim? Hata defteri yöntemi anlat."><span>📓</span>Hata defteri</button>
+          <button class="quick-btn" type="button" data-prompt="Motivasyonum düştü, çalışmaya devam etmem için bana destek ol."><span>💪</span>Motivasyon ver</button>
+          <button class="quick-btn" type="button" data-prompt="Uyku, beslenme ve mola düzenimi YKS hazırlığına göre nasıl ayarlamalıyım?"><span>😴</span>Uyku & düzen</button>
+          <button class="quick-btn" type="button" data-prompt="Telefon ve sosyal medya dikkat dağınıklığını nasıl azaltırım?"><span>📵</span>Dikkat dağınıklığı</button>
         </div>
       </div>
 
@@ -161,35 +166,26 @@
       <div id="archive-list"></div>
     </section>
 
-    <!-- 5) AYARLAR (Eski Premium Yeri) -->
+    <!-- 5) AYARLAR (Sekmeli Yapı) -->
     <section class="view" id="view-settings">
       <div class="glass-card hero">
         <h2>⚙️ Ayarlar</h2>
-        <p class="muted">Hesap ve abonelik yönetimi.</p>
+      </div>
+      
+      <!-- Sekmeler -->
+      <div class="cat-row" style="margin-bottom: 14px;">
+        <button class="cat-btn active" id="tab-btn-account" type="button">Hesap</button>
+        <button class="cat-btn" id="tab-btn-premium" type="button">Premium</button>
       </div>
 
-      <div class="glass-card" id="settings-account">
+      <!-- Hesap Sekmesi İçeriği -->
+      <div id="settings-tab-account">
         <!-- JS ile doldurulacak -->
       </div>
 
-      <div class="glass-card" id="settings-premium">
-        <div class="card-title">💎 Premium</div>
-        <p class="muted small" style="margin-bottom: 10px;">Sınırsız soru çözümü ve PDF deneme indirme.</p>
-        <div id="premium-status" class="premium-status hidden" style="margin-bottom: 10px;"></div>
-        
-        <div class="plans">
-          <div class="plan">
-            <div class="plan-name">Aylık</div>
-            <div class="plan-price"><del style="font-size:16px; color:#94a3b8; margin-right:4px;">200 ₺</del>149 ₺<small>/ay</small></div>
-            <button class="buy-btn primary-btn full" data-plan="monthly" type="button">Aylık Al</button>
-          </div>
-          <div class="plan popular">
-            <div class="ribbon">Popüler</div>
-            <div class="plan-name">Yıllık</div>
-            <div class="plan-price"><del style="font-size:16px; color:#94a3b8; margin-right:4px;">2400 ₺</del>1499 ₺<small>/yıl</small></div>
-            <button class="buy-btn primary-btn full" data-plan="yearly" type="button">Yıllık Al</button>
-          </div>
-        </div>
+      <!-- Premium Sekmesi İçeriği -->
+      <div id="settings-tab-premium" class="hidden">
+        <!-- JS ile doldurulacak -->
       </div>
     </section>
   </main>
@@ -213,13 +209,13 @@
   </div>
 </div>
 
-<!-- Premium modal -->
+<!-- Premium modal (PDF için uyarı) -->
 <div id="premium-modal" class="modal hidden">
   <div class="modal-box">
     <div style="font-size:42px">🔒</div>
     <h3>PDF indirme Premium'a özel</h3>
     <p class="muted">Arşivindeki sorulardan PDF deneme oluşturmak için Premium üye olmalısın.</p>
-    <button id="modal-go-premium" class="primary-btn full" type="button">Ayarlara Git 💎</button>
+    <button id="modal-go-premium" class="primary-btn full" type="button">Premium'a Git 💎</button>
     <button id="modal-close" class="ghost-btn full" type="button">Şimdi değil</button>
   </div>
 </div>

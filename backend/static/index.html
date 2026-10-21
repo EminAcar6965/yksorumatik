@@ -17,17 +17,15 @@
     <div style="display:flex; gap:8px; align-items:center;">
       <button id="quota-chip" class="quota-chip" type="button"><span id="quota-text">…</span></button>
       <button id="auth-btn" class="quota-chip" type="button">Giriş Yap</button>
-      <button id="admin-btn" class="quota-chip hidden" type="button">Admin</button>
     </div>
   </header>
 
   <main>
-    <!-- 1) PANELİM -->
+    <!-- 1) PANELİM (Odaklan buraya taşındı) -->
     <section class="view active" id="view-panel">
       <div class="glass-card hero">
         <h2 id="greeting-text">Merhaba! 👋</h2>
         <p class="muted">Bugünkü ilerlemen burada.</p>
-        <input id="name-input" class="text-input" type="text" maxlength="20" placeholder="Adın (isteğe bağlı)">
       </div>
 
       <div class="glass-card goal-card">
@@ -75,6 +73,25 @@
         </div>
         <div id="coach-note" class="coach-note hidden"></div>
       </div>
+
+      <!-- Odaklan (Pomodoro) Kısmı Buraya Taşındı -->
+      <div class="glass-card focus-card">
+        <div class="card-title">⏱️ Odaklan</div>
+        <div class="chips" id="dur-chips">
+          <button class="chip dur-chip" data-min="15" type="button">15 dk</button>
+          <button class="chip dur-chip active" data-min="25" type="button">25 dk</button>
+          <button class="chip dur-chip" data-min="45" type="button">45 dk</button>
+          <button class="chip dur-chip" data-min="60" type="button">60 dk</button>
+        </div>
+        <div class="pomo-time" id="pomo-time">25:00</div>
+        <div class="bar"><div id="pomo-bar" class="bar-fill"></div></div>
+        <div class="btn-row">
+          <button id="pomo-toggle" class="primary-btn" type="button">Başlat</button>
+          <button id="pomo-expand" class="ghost-btn" type="button">⛶ Tam ekran</button>
+          <button id="pomo-reset" class="ghost-btn" type="button">Sıfırla</button>
+        </div>
+        <div class="muted small" id="pomo-count">Bugün 0 tur</div>
+      </div>
     </section>
 
     <!-- 2) SORU ÇÖZ -->
@@ -110,56 +127,26 @@
       <div id="coach-intro" class="coach-intro">
         <div class="glass-card">
           <h3 style="margin:0 0 4px">Koçuna ne danışmak istersin?</h3>
-          <p class="muted small" style="margin:0">Bir karta dokun ya da aşağıya yaz. Sohbet ekranı açılır.</p>
         </div>
         <div class="quick-grid">
           <button class="quick-btn" type="button" data-prompt="Bugün hangi konulara çalışmalıyım? Kısa bir plan çıkar."><span>📅</span>Bugün ne çalışayım?</button>
           <button class="quick-btn" type="button" data-prompt="Bana bir haftalık gerçekçi YKS çalışma programı hazırla."><span>🗓️</span>Haftalık program</button>
           <button class="quick-btn" type="button" data-prompt="Netlerimi hızlı artırmak için ne yapmalıyım?"><span>📈</span>Netlerimi artır</button>
-          <button class="quick-btn" type="button" data-prompt="Sınav kaygısıyla nasıl başa çıkarım? Uygulanabilir önerilerin neler?"><span>😰</span>Sınav kaygısı</button>
-          <button class="quick-btn" type="button" data-prompt="Deneme sınavında süre yönetimi ve soru atlama stratejisi nasıl olmalı?"><span>⏱️</span>Deneme stratejisi</button>
-          <button class="quick-btn" type="button" data-prompt="Etkili tekrar nasıl yapılır? Aralıklı tekrar ve aktif hatırlama yöntemini anlat."><span>🧠</span>Etkili tekrar</button>
-          <button class="quick-btn" type="button" data-prompt="Yanlış yaptığım soruları nasıl analiz etmeliyim? Hata defteri yöntemi anlat."><span>📓</span>Hata defteri</button>
-          <button class="quick-btn" type="button" data-prompt="Motivasyonum düştü, çalışmaya devam etmem için bana destek ol."><span>💪</span>Motivasyon ver</button>
-          <button class="quick-btn" type="button" data-prompt="Uyku, beslenme ve mola düzenimi YKS hazırlığına göre nasıl ayarlamalıyım?"><span>😴</span>Uyku & düzen</button>
-          <button class="quick-btn" type="button" data-prompt="Telefon ve sosyal medya dikkat dağınıklığını nasıl azaltırım?"><span>📵</span>Dikkat dağınıklığı</button>
+          <button class="quick-btn" type="button" data-prompt="Sınav kaygısıyla nasıl başa çıkarım?"><span>😰</span>Sınav kaygısı</button>
         </div>
       </div>
 
       <div class="chat-scroll" id="coach-messages"></div>
-
       <div class="composer">
         <textarea id="coach-input" rows="1" placeholder="Koçuna bir şey sor..."></textarea>
         <button id="coach-send" class="send-btn" type="button" disabled>➤</button>
       </div>
     </section>
 
-    <!-- 4) ODAKLAN -->
-    <section class="view" id="view-focus">
-      <div class="glass-card focus-card">
-        <div class="card-title">⏱️ Odaklan</div>
-        <div class="chips" id="dur-chips">
-          <button class="chip dur-chip" data-min="15" type="button">15 dk</button>
-          <button class="chip dur-chip active" data-min="25" type="button">25 dk</button>
-          <button class="chip dur-chip" data-min="45" type="button">45 dk</button>
-          <button class="chip dur-chip" data-min="60" type="button">60 dk</button>
-        </div>
-        <div class="pomo-time" id="pomo-time">25:00</div>
-        <div class="bar"><div id="pomo-bar" class="bar-fill"></div></div>
-        <div class="btn-row">
-          <button id="pomo-toggle" class="primary-btn" type="button">Başlat</button>
-          <button id="pomo-expand" class="ghost-btn" type="button">⛶ Tam ekran</button>
-          <button id="pomo-reset" class="ghost-btn" type="button">Sıfırla</button>
-        </div>
-        <div class="muted small" id="pomo-count">Bugün 0 tur</div>
-      </div>
-    </section>
-
-    <!-- 5) ARŞİV + PDF -->
+    <!-- 4) ARŞİV + PDF -->
     <section class="view" id="view-archive">
       <div class="glass-card" id="pdf-card">
         <div class="card-title">📄 PDF Deneme Oluştur <span id="pdf-lock" class="badge hidden">🔒 Premium</span></div>
-        <p class="muted small">Arşivindeki sorulardan karışık bir deneme + çözüm anahtarı hazırlar.</p>
         <div class="check-grid" id="pdf-subjects"></div>
         <div class="count-row">
           <span class="small muted">Soru sayısı</span>
@@ -174,32 +161,34 @@
       <div id="archive-list"></div>
     </section>
 
-    <!-- 6) PREMIUM -->
-    <section class="view" id="view-premium">
+    <!-- 5) AYARLAR (Eski Premium Yeri) -->
+    <section class="view" id="view-settings">
       <div class="glass-card hero">
-        <h2>💎 Premium</h2>
-        <p class="muted">Sınırsız soru çözümü ve PDF deneme indirme.</p>
-        <div id="premium-status" class="premium-status hidden"></div>
+        <h2>⚙️ Ayarlar</h2>
+        <p class="muted">Hesap ve abonelik yönetimi.</p>
       </div>
-      <div class="plans">
-        <div class="plan">
-          <div class="plan-name">Haftalık</div>
-          <div class="plan-price">49 ₺<small>/hafta</small></div>
-          <ul><li>♾️ Sınırsız soru çözümü</li><li>📄 PDF deneme indirme</li></ul>
-          <button class="buy-btn primary-btn full" data-plan="weekly" type="button">Haftalık Al</button>
-        </div>
-        <div class="plan popular">
-          <div class="ribbon">Popüler</div>
-          <div class="plan-name">Aylık</div>
-          <div class="plan-price"><del style="font-size:18px; color:#94a3b8; margin-right:8px;">200 ₺</del>149 ₺<small>/ay</small></div>
-          <ul><li>♾️ Sınırsız soru çözümü</li><li>📄 PDF deneme indirme</li></ul>
-          <button class="buy-btn primary-btn full" data-plan="monthly" type="button">Aylık Al</button>
-        </div>
-        <div class="plan">
-          <div class="plan-name">Yıllık</div>
-          <div class="plan-price"><del style="font-size:18px; color:#94a3b8; margin-right:8px;">2400 ₺</del>1499 ₺<small>/yıl</small></div>
-          <ul><li>♾️ Sınırsız soru çözümü</li><li>📄 PDF deneme indirme</li></ul>
-          <button class="buy-btn primary-btn full" data-plan="yearly" type="button">Yıllık Al</button>
+
+      <div class="glass-card" id="settings-account">
+        <!-- JS ile doldurulacak -->
+      </div>
+
+      <div class="glass-card" id="settings-premium">
+        <div class="card-title">💎 Premium</div>
+        <p class="muted small" style="margin-bottom: 10px;">Sınırsız soru çözümü ve PDF deneme indirme.</p>
+        <div id="premium-status" class="premium-status hidden" style="margin-bottom: 10px;"></div>
+        
+        <div class="plans">
+          <div class="plan">
+            <div class="plan-name">Aylık</div>
+            <div class="plan-price"><del style="font-size:16px; color:#94a3b8; margin-right:4px;">200 ₺</del>149 ₺<small>/ay</small></div>
+            <button class="buy-btn primary-btn full" data-plan="monthly" type="button">Aylık Al</button>
+          </div>
+          <div class="plan popular">
+            <div class="ribbon">Popüler</div>
+            <div class="plan-name">Yıllık</div>
+            <div class="plan-price"><del style="font-size:16px; color:#94a3b8; margin-right:4px;">2400 ₺</del>1499 ₺<small>/yıl</small></div>
+            <button class="buy-btn primary-btn full" data-plan="yearly" type="button">Yıllık Al</button>
+          </div>
         </div>
       </div>
     </section>
@@ -209,9 +198,8 @@
     <button class="nav-item active" data-tab="panel" type="button"><span>📊</span>Panelim</button>
     <button class="nav-item" data-tab="solve" type="button"><span>📸</span>Soru Çöz</button>
     <button class="nav-item" data-tab="coach" type="button"><span>🧑‍🏫</span>Koç</button>
-    <button class="nav-item" data-tab="focus" type="button"><span>⏱️</span>Odaklan</button>
     <button class="nav-item" data-tab="archive" type="button"><span>🗂️</span>Arşiv</button>
-    <button class="nav-item" data-tab="premium" type="button"><span>💎</span>Premium</button>
+    <button class="nav-item" data-tab="settings" type="button"><span>⚙️</span>Ayarlar</button>
   </nav>
 </div>
 
@@ -230,31 +218,35 @@
   <div class="modal-box">
     <div style="font-size:42px">🔒</div>
     <h3>PDF indirme Premium'a özel</h3>
-    <p class="muted">Arşivindeki sorulardan PDF deneme oluşturmak için Premium üye olmalısın. Haftalık sadece 49 ₺ ile sınırsız soru ve PDF indirme hakkı kazan.</p>
-    <button id="modal-go-premium" class="primary-btn full" type="button">Premium Al 💎</button>
+    <p class="muted">Arşivindeki sorulardan PDF deneme oluşturmak için Premium üye olmalısın.</p>
+    <button id="modal-go-premium" class="primary-btn full" type="button">Ayarlara Git 💎</button>
     <button id="modal-close" class="ghost-btn full" type="button">Şimdi değil</button>
   </div>
 </div>
 
 <!-- Auth modal -->
 <div id="auth-modal" class="modal hidden">
-  <div class="modal-box">
+  <div class="modal-box" style="max-width: 400px;">
     <h3 id="auth-title">Giriş Yap</h3>
+    
+    <div id="auth-register-fields" class="hidden">
+      <input id="auth-name" class="text-input" type="text" placeholder="Adın">
+      <div style="display:flex; gap:8px; align-items:center; margin-top:8px;">
+        <input id="auth-code" class="text-input" type="text" placeholder="Doğrulama Kodu" style="flex:1; margin-top:0;">
+        <button id="btn-send-code" class="ghost-btn" type="button" style="padding:11px 12px; font-size:12px;">Kod Al</button>
+      </div>
+    </div>
+
     <input id="auth-email" class="text-input" type="email" placeholder="E-posta">
     <input id="auth-password" class="text-input" type="password" placeholder="Şifre">
+    
+    <div id="auth-password-confirm-wrap" class="hidden">
+      <input id="auth-password-confirm" class="text-input" type="password" placeholder="Şifreyi Tekrar Gir">
+    </div>
+
     <button id="auth-submit" class="primary-btn full">Giriş Yap</button>
     <button id="auth-switch" class="ghost-btn full">Hesabın yok mu? Kayıt Ol</button>
     <button id="auth-close" class="ghost-btn full">Kapat</button>
-  </div>
-</div>
-
-<!-- Admin modal -->
-<div id="admin-modal" class="modal hidden">
-  <div class="modal-box" style="max-width: 600px; max-height: 80vh; overflow-y: auto;">
-    <h3>Admin Paneli</h3>
-    <div id="admin-stats" class="stat-grid" style="grid-template-columns: 1fr 1fr 1fr;"></div>
-    <div id="admin-user-list" style="margin-top: 16px;"></div>
-    <button id="admin-close" class="ghost-btn full" style="margin-top: 12px;">Kapat</button>
   </div>
 </div>
 

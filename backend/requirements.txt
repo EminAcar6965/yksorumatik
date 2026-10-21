@@ -6,3 +6,5 @@ python-multipart==0.0.9
 Pillow>=12.3.0
 PyJWT
 bcrypt
+supabase
+boto3

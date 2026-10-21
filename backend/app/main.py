@@ -1,78 +1,50 @@
-import os, sqlite3, uuid, time, base64, io, jwt, bcrypt, random, string
+import os, uuid, time, base64, io, jwt, bcrypt, random, string
 from datetime import datetime, timezone, timedelta
-from contextlib import closing
-from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, Request, Response, File, Form, UploadFile, HTTPException, Depends
+from fastapi import FastAPI, Request, Response, File, Form, UploadFile, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from google import genai
 from google.genai import types
 from PIL import Image, ImageOps
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
+from supabase import create_client, Client
+import boto3
+from botocore.client import Config
 
 load_dotenv()
 
-HERE = Path(__file__).resolve().parent
-DB_PATH = os.getenv("DB_PATH", str(HERE / "sorumatik.db"))
+HERE = os.path.dirname(os.path.abspath(__file__))
 API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 SECRET_KEY = os.getenv("JWT_SECRET", "gizli-anahtar-degistir-bunu")
 ALGORITHM = "HS256"
 DAILY_FREE = 3
-PLAN_DAYS = {"weekly": 7, "monthly": 30, "yearly": 365}
+PLAN_DAYS = {"daily": 1, "weekly": 7, "monthly": 30, "yearly": 365}
 
-STATIC_DIR = HERE.parent / "static"
+STATIC_DIR = os.path.join(HERE, "..", "static")
 
 app = FastAPI(title="YKS Sorumatik")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 client = genai.Client(api_key=API_KEY) if API_KEY else None
 
-# --- Veritabanı ---
-def db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+# --- SUPABASE BAĞLANTISI ---
+supabase: Client = create_client(
+    os.getenv("SUPABASE_URL", ""),
+    os.getenv("SUPABASE_ANON_KEY", "")
+)
 
-def init_db():
-    with closing(db()) as conn:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS users(
-                uid TEXT PRIMARY KEY,
-                email TEXT UNIQUE,
-                password_hash TEXT,
-                name TEXT,
-                premium_until INTEGER DEFAULT 0,
-                plan TEXT DEFAULT '',
-                used_date TEXT DEFAULT '',
-                used_count INTEGER DEFAULT 0,
-                created_at TEXT,
-                role TEXT DEFAULT 'user'
-            );
-        """)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS questions(
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                uid TEXT,
-                subject TEXT,
-                image TEXT,
-                answer TEXT,
-                created_at TEXT
-            );
-        """)
-        # Doğrulama kodları için geçici tablo
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS verification_codes(
-                email TEXT PRIMARY KEY,
-                code TEXT,
-                expires_at INTEGER
-            );
-        """)
-        conn.commit()
-
-init_db()
+# --- CLOUDFLARE R2 BAĞLANTISI ---
+s3_client = boto3.client(
+    service_name='s3',
+    endpoint_url=os.getenv('R2_ENDPOINT_URL'),
+    aws_access_key_id=os.getenv('R2_ACCESS_KEY_ID'),
+    aws_secret_access_key=os.getenv('R2_SECRET_ACCESS_KEY'),
+    config=Config(signature_version='s3v4'),
+    region_name='auto'
+)
 
 # --- Yardımcılar ---
 def today():
@@ -96,23 +68,25 @@ def get_user(request: Request, response: Response):
             payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
             uid = payload.get("uid")
             if uid:
-                with closing(db()) as conn:
-                    user = conn.execute("SELECT * FROM users WHERE uid=?", (uid,)).fetchone()
-                    if user: return user
+                res = supabase.table("users").select("*").eq("uid", uid).execute()
+                if res.data and len(res.data) > 0:
+                    return res.data[0]
         except Exception: pass
 
+    # Anonim kullanıcı
     uid = request.cookies.get("uid", "")
     is_new = False
     if not uid or len(uid) > 64:
         uid = uuid.uuid4().hex
         is_new = True
 
-    with closing(db()) as conn:
-        user = conn.execute("SELECT * FROM users WHERE uid=?", (uid,)).fetchone()
-        if not user:
-            conn.execute("INSERT INTO users(uid, created_at) VALUES(?, ?)", (uid, datetime.now(timezone.utc).isoformat()))
-            conn.commit()
-            user = conn.execute("SELECT * FROM users WHERE uid=?", (uid,)).fetchone()
+    res = supabase.table("users").select("*").eq("uid", uid).execute()
+    if not res.data or len(res.data) == 0:
+        new_user = {"uid": uid, "created_at": datetime.now(timezone.utc).isoformat()}
+        supabase.table("users").insert(new_user).execute()
+        user = new_user
+    else:
+        user = res.data[0]
 
     if is_new:
         response.set_cookie("uid", uid, max_age=60*60*24*365, samesite="Lax", httponly=True)
@@ -120,23 +94,21 @@ def get_user(request: Request, response: Response):
     return user
 
 def get_status(user):
-    is_premium = (user["premium_until"] or 0) > time.time()
-    used = user["used_count"] if user["used_date"] == today() else 0
+    is_premium = (user.get("premium_until") or 0) > time.time()
+    used = user.get("used_count", 0) if user.get("used_date") == today() else 0
     return {
         "is_premium": is_premium,
         "remaining": max(0, DAILY_FREE - used),
-        "plan": user["plan"] if is_premium else "",
-        "premium_until": user["premium_until"] if is_premium else 0,
-        "email": user["email"] or "",
-        "name": user["name"] or "",
-        "role": user["role"],
+        "plan": user.get("plan", "") if is_premium else "",
+        "premium_until": user.get("premium_until", 0) if is_premium else 0,
+        "email": user.get("email", ""),
+        "name": user.get("name", ""),
+        "role": user.get("role", "user"),
     }
 
 def consume_quota(uid, user):
-    used = user["used_count"] if user["used_date"] == today() else 0
-    with closing(db()) as conn:
-        conn.execute("UPDATE users SET used_date=?, used_count=? WHERE uid=?", (today(), used + 1, uid))
-        conn.commit()
+    used = user.get("used_count", 0) if user.get("used_date") == today() else 0
+    supabase.table("users").update({"used_date": today(), "used_count": used + 1}).eq("uid", uid).execute()
 
 def ask_ai(system: str, contents: list, max_tokens: int = 2000) -> str:
     if not client:
@@ -166,6 +138,19 @@ def prepare_image(raw: bytes) -> bytes:
         return out.getvalue()
     except:
         raise HTTPException(400, "Fotoğraf okunamadı.")
+
+def upload_to_r2(file_bytes: bytes, file_name: str):
+    try:
+        s3_client.put_object(
+            Bucket=os.getenv('R2_BUCKET_NAME'),
+            Key=file_name,
+            Body=file_bytes,
+            ContentType="image/jpeg"
+        )
+        return f"{os.getenv('R2_PUBLIC_URL')}/{file_name}"
+    except Exception as e:
+        print(f"R2 Yükleme Hatası: {e}")
+        return None
 
 # --- Modeller ---
 class ChatTurn(BaseModel):
@@ -197,83 +182,71 @@ Cevapların kısa, uygulanabilir ve somut olsun. Öğrenci profili: {profile}"""
 @app.post("/api/send-code")
 def send_code(body: AuthIn):
     email = body.email.strip().lower()
-    if not email or "@" not in email:
-        raise HTTPException(400, "Geçerli bir e-posta girin.")
+    if not email or "@" not in email: raise HTTPException(400, "Geçerli bir e-posta girin.")
     
-    # 6 haneli kod üret
     code = ''.join(random.choices(string.digits, k=6))
-    expires = int(time.time()) + 300 # 5 dakika geçerli
+    expires = int(time.time()) + 300
     
-    with closing(db()) as conn:
-        conn.execute("INSERT OR REPLACE INTO verification_codes(email, code, expires_at) VALUES(?,?,?)", (email, code, expires))
-        conn.commit()
+    supabase.table("verification_codes").upsert({"email": email, "code": code, "expires_at": expires}).execute()
     
-    # Gerçek e-posta gönderimi yerine loglara yazıyoruz
     print(f"🔥 DOĞRULAMA KODU ({email}): {code}")
-    return {"ok": True, "message": "Doğrulama kodu gönderildi. (Test için Render loglarına bakın)"}
+    return {"ok": True, "message": "Doğrulama kodu gönderildi. (Render loglarına bakın)"}
 
 @app.post("/api/register")
-def register(body: AuthIn, response: Response):
+def register(body: AuthIn):
     email = body.email.strip().lower()
     name = (body.name or "").strip()
     code = (body.code or "").strip()
     
-    if len(body.password) < 4:
-        raise HTTPException(400, "Şifre en az 4 karakter olmalı.")
-    if not name:
-        raise HTTPException(400, "Lütfen adınızı girin.")
+    if len(body.password) < 4: raise HTTPException(400, "Şifre en az 4 karakter olmalı.")
+    if not name: raise HTTPException(400, "Lütfen adınızı girin.")
     
-    with closing(db()) as conn:
-        # Kod doğrulama
-        vc = conn.execute("SELECT * FROM verification_codes WHERE email=?", (email,)).fetchone()
-        if not vc or vc["code"] != code or vc["expires_at"] < time.time():
-            raise HTTPException(400, "Doğrulama kodu hatalı veya süresi geçmiş.")
+    # Kod doğrulama
+    vc = supabase.table("verification_codes").select("*").eq("email", email).execute()
+    if not vc.data or vc.data[0]["code"] != code or vc.data[0]["expires_at"] < time.time():
+        raise HTTPException(400, "Doğrulama kodu hatalı veya süresi geçmiş.")
 
-        existing = conn.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
-        if existing:
-            raise HTTPException(400, "Bu e-posta zaten kayıtlı.")
+    existing = supabase.table("users").select("*").eq("email", email).execute()
+    if existing.data and len(existing.data) > 0:
+        raise HTTPException(400, "Bu e-posta zaten kayıtlı.")
 
-        uid = uuid.uuid4().hex
-        role = "admin" if os.getenv("ADMIN_EMAIL", "").lower() == email else "user"
-        
-        # Eğer kullanıcı çerezle girmişse, geçmişini yeni hesaba aktar
-        old_uid = get_user(request=None, response=None) if False else None 
-        # Basitlik için yeni uid oluşturuyoruz. (İleride anonim kullanıcıyı bağlayabiliriz).
-        
-        conn.execute(
-            "INSERT INTO users(uid, email, password_hash, name, created_at, role) VALUES(?,?,?,?,?,?)",
-            (uid, email, hash_password(body.password), name, datetime.now(timezone.utc).isoformat(), role)
-        )
-        conn.execute("DELETE FROM verification_codes WHERE email=?", (email,))
-        conn.commit()
-        
-        token = create_token(uid, email, role)
-        return {"token": token, "uid": uid, "role": role, "name": name}
+    uid = uuid.uuid4().hex
+    role = "admin" if os.getenv("ADMIN_EMAIL", "").lower() == email else "user"
+    
+    new_user = {"uid": uid, "email": email, "password_hash": hash_password(body.password), "name": name, "created_at": datetime.now(timezone.utc).isoformat(), "role": role}
+    supabase.table("users").insert(new_user).execute()
+    supabase.table("verification_codes").delete().eq("email", email).execute()
+    
+    token = create_token(uid, email, role)
+    return {"token": token, "uid": uid, "role": role, "name": name}
 
 @app.post("/api/login")
 def login(body: AuthIn):
     email = body.email.strip().lower()
-    with closing(db()) as conn:
-        user = conn.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
-        if not user or not user["password_hash"] or not verify_password(body.password, user["password_hash"]):
-            raise HTTPException(401, "E-posta veya şifre hatalı.")
-        token = create_token(user["uid"], user["email"], user["role"])
-        return {"token": token, "uid": user["uid"], "role": user["role"], "name": user["name"]}
+    res = supabase.table("users").select("*").eq("email", email).execute()
+    if not res.data or len(res.data) == 0:
+        raise HTTPException(401, "E-posta veya şifre hatalı.")
+    
+    user = res.data[0]
+    if not user.get("password_hash") or not verify_password(body.password, user["password_hash"]):
+        raise HTTPException(401, "E-posta veya şifre hatalı.")
+        
+    token = create_token(user["uid"], user["email"], user["role"])
+    return {"token": token, "uid": user["uid"], "role": user["role"], "name": user.get("name", "")}
 
 @app.delete("/api/delete-account")
 def delete_account(request: Request, response: Response):
     user = get_user(request, response)
-    if not user["email"]: raise HTTPException(400, "Giriş yapmış bir hesap bulunamadı.")
-    with closing(db()) as conn:
-        conn.execute("DELETE FROM users WHERE uid=?", (user["uid"],))
-        conn.execute("DELETE FROM questions WHERE uid=?", (user["uid"],))
-        conn.commit()
+    if not user.get("email"): raise HTTPException(400, "Giriş yapmış bir hesap bulunamadı.")
+    
+    supabase.table("users").delete().eq("uid", user["uid"]).execute()
+    supabase.table("questions").delete().eq("uid", user["uid"]).execute()
     return {"ok": True}
 
 # --- Uygulama Endpoint'leri ---
 @app.get("/")
 def index():
-    return FileResponse(STATIC_DIR / "index.html")
+    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
 @app.get("/api/status")
 def api_status(request: Request, response: Response):
@@ -287,10 +260,9 @@ async def api_subscribe(request: Request, response: Response):
     plan = data.get("plan", "monthly")
     days = PLAN_DAYS.get(plan)
     if not days: raise HTTPException(400, "Geçersiz plan.")
-    base = max(time.time(), user["premium_until"] or 0)
-    with closing(db()) as conn:
-        conn.execute("UPDATE users SET premium_until=?, plan=? WHERE uid=?", (int(base + days * 86400), plan, user["uid"]))
-        conn.commit()
+    base = max(time.time(), user.get("premium_until") or 0)
+    
+    supabase.table("users").update({"premium_until": int(base + days * 86400), "plan": plan}).eq("uid", user["uid"]).execute()
     return {"ok": True, **get_status(get_user(request, response))}
 
 @app.post("/solve")
@@ -301,15 +273,26 @@ async def solve(request: Request, response: Response, file: UploadFile = File(..
         raise HTTPException(403, "Günlük soru hakkınız doldu.")
     raw = await file.read()
     if not raw: raise HTTPException(400, "Fotoğraf bulunamadı.")
+    
     jpeg = prepare_image(raw)
-    b64 = base64.b64encode(jpeg).decode()
     image_part = types.Part.from_bytes(data=jpeg, mime_type="image/jpeg")
     prompt = f"Ders: {subject}\nNot: {note}\nBu soruyu çöz."
     answer = ask_ai(SOLVE_SYSTEM, contents=[image_part, prompt])
-    with closing(db()) as conn:
-        conn.execute("INSERT INTO questions(uid,subject,image,answer,created_at) VALUES(?,?,?,?,?)",
-                     (user["uid"], subject, b64, answer, datetime.now(timezone.utc).isoformat()))
-        conn.commit()
+    
+    # Resmi R2'ye yükle
+    file_name = f"questions/{user['uid']}_{int(time.time())}.jpg"
+    image_url = upload_to_r2(jpeg, file_name)
+    
+    # Veritabanına kaydet (image kısmına artık URL kaydediyoruz)
+    new_q = {
+        "uid": user["uid"],
+        "subject": subject,
+        "image": image_url or "error_uploading",
+        "answer": answer,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    supabase.table("questions").insert(new_q).execute()
+    
     if not st["is_premium"]: consume_quota(user["uid"], user)
     return {"answer": answer, **get_status(get_user(request, response))}
 
@@ -320,12 +303,14 @@ async def followup(request: Request, response: Response):
     if not st["is_premium"] and st["remaining"] <= 0: raise HTTPException(403, "Günlük soru hakkınız doldu.")
     data = await request.json()
     msg = str(data.get("message", "")).strip()[:3000]
+    
     system = FOLLOW_SYSTEM.format(subject=data.get("subject", ""), note=data.get("note", "-"), solution=data.get("solution", "(yok)")[:6000])
     contents = []
     for turn in data.get("history", []):
         role = "user" if turn["role"] == "user" else "model"
         contents.append(types.Content(role=role, parts=[types.Part(text=turn["content"])]))
     contents.append(types.Content(role="user", parts=[types.Part(text=msg)]))
+    
     answer = ask_ai(system, contents)
     if not st["is_premium"]: consume_quota(user["uid"], user)
     return {"answer": answer, **get_status(get_user(request, response))}
@@ -336,11 +321,13 @@ async def coach(request: Request, response: Response):
     data = await request.json()
     msg = str(data.get("message", "")).strip()[:3000]
     system = COACH_SYSTEM.format(profile=str(data.get("profile", {}))[:800])
+    
     contents = []
     for turn in data.get("history", []):
         role = "user" if turn["role"] == "user" else "model"
         contents.append(types.Content(role=role, parts=[types.Part(text=turn["content"])]))
     contents.append(types.Content(role="user", parts=[types.Part(text=msg)]))
+    
     answer = ask_ai(system, contents, max_tokens=1200)
     return {"answer": answer}
 
@@ -348,7 +335,6 @@ async def coach(request: Request, response: Response):
 def history(request: Request, response: Response, pdf: int = 0):
     user = get_user(request, response)
     if pdf == 1 and not get_status(user)["is_premium"]: raise HTTPException(403, "PDF indirme Premium üyelere özeldir.")
-    with closing(db()) as conn:
-        rows = conn.execute("SELECT subject,image,answer,created_at FROM questions WHERE uid=? ORDER BY id DESC LIMIT ?",
-                            (user["uid"], 200 if pdf else 60)).fetchall()
-    return [dict(r) for r in rows]
+    
+    res = supabase.table("questions").select("*").eq("uid", user["uid"]).order("id", desc=True).limit(200 if pdf else 60).execute()
+    return res.data

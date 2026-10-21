@@ -192,7 +192,7 @@ async def solve(request: Request, file: UploadFile = File(...), subject: str = F
     if not check_and_update_quota(ip):
         raise HTTPException(403, "Günlük soru hakkınız doldu. Sınırsız çözüm için Premium'a geçebilirsiniz.")
         
-    try: # HER ŞEYİ TRY İÇİNE ALDIK
+    try: # HATA YAKALAMA BURADA BAŞLIYOR
         subject = subject if subject in SUBJECTS else "Genel"
         raw = await file.read()
         if not raw: raise HTTPException(400, "Boş dosya.")
@@ -205,6 +205,8 @@ async def solve(request: Request, file: UploadFile = File(...), subject: str = F
         prompt += "\nFotoğraftaki soruyu YKS formatında çöz ve taktik ver."
 
         image_part = types.Part.from_bytes(data=jpeg, mime_type="image/jpeg")
+        
+        # Yapay zekayı çağırıyoruz
         answer = ask_ai(ABI_SYSTEM, contents=[image_part, prompt])
 
         with closing(db()) as conn:
@@ -216,9 +218,10 @@ async def solve(request: Request, file: UploadFile = File(...), subject: str = F
 
         return {"answer": answer}
     
-    except Exception as e:
+    except Exception as e: # HATA YAKALAMA BURADA BİTİYOR
         print(f"KRİTİK HATA: {e}")
-        raise HTTPException(500, f"Sunucu Hatası: {str(e)}")
+        # Hatanın detayını doğrudan ekrana gönderiyoruz
+        return {"answer": f"⚠️ SİSTEM HATASI: {str(e)}"}
 @app.post("/followup")
 async def followup(body: FollowupIn, request: Request):
     ip = get_client_ip(request)

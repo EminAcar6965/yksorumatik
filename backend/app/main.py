@@ -125,7 +125,7 @@ def ask_ai(system: str, contents: list, max_tokens: int = 4096) -> str:
         raise HTTPException(500, "Sunucuda GEMINI_API_KEY ayarlanmamış.")
     try:
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-1.5-flash',
             config=types.GenerateContentConfig(
                 system_instruction=system,
                 max_output_tokens=max_tokens,
@@ -192,29 +192,33 @@ async def solve(request: Request, file: UploadFile = File(...), subject: str = F
     if not check_and_update_quota(ip):
         raise HTTPException(403, "Günlük soru hakkınız doldu. Sınırsız çözüm için Premium'a geçebilirsiniz.")
         
-    subject = subject if subject in SUBJECTS else "Genel"
-    raw = await file.read()
-    if not raw: raise HTTPException(400, "Boş dosya.")
+    try: # HER ŞEYİ TRY İÇİNE ALDIK
+        subject = subject if subject in SUBJECTS else "Genel"
+        raw = await file.read()
+        if not raw: raise HTTPException(400, "Boş dosya.")
+        
+        jpeg = prepare_image(raw)
+        b64 = base64.b64encode(jpeg).decode()
+
+        prompt = f"Ders: {subject}."
+        if note.strip(): prompt += f"\nÖğrencinin notu: {note.strip()[:1000]}"
+        prompt += "\nFotoğraftaki soruyu YKS formatında çöz ve taktik ver."
+
+        image_part = types.Part.from_bytes(data=jpeg, mime_type="image/jpeg")
+        answer = ask_ai(ABI_SYSTEM, contents=[image_part, prompt])
+
+        with closing(db()) as conn:
+            conn.execute(
+                "INSERT INTO history (subject, image, answer, created_at) VALUES (?, ?, ?, ?)",
+                (subject, b64, answer, datetime.now(timezone.utc).isoformat()),
+            )
+            conn.commit()
+
+        return {"answer": answer}
     
-    jpeg = prepare_image(raw)
-    b64 = base64.b64encode(jpeg).decode()
-
-    prompt = f"Ders: {subject}."
-    if note.strip(): prompt += f"\nÖğrencinin notu: {note.strip()[:1000]}"
-    prompt += "\nFotoğraftaki soruyu YKS formatında çöz ve taktik ver."
-
-    image_part = types.Part.from_bytes(data=jpeg, mime_type="image/jpeg")
-    answer = ask_ai(ABI_SYSTEM, contents=[image_part, prompt])
-
-    with closing(db()) as conn:
-        conn.execute(
-            "INSERT INTO history (subject, image, answer, created_at) VALUES (?, ?, ?, ?)",
-            (subject, b64, answer, datetime.now(timezone.utc).isoformat()),
-        )
-        conn.commit()
-
-    return {"answer": answer}
-
+    except Exception as e:
+        print(f"KRİTİK HATA: {e}")
+        raise HTTPException(500, f"Sunucu Hatası: {str(e)}")
 @app.post("/followup")
 async def followup(body: FollowupIn, request: Request):
     ip = get_client_ip(request)

@@ -1,33 +1,31 @@
 // ============================================================
-// YKS Sorumatik - Aurora / Glassmorphism Arayüz Mantığı
+// YKS Sorumatik - Nihai Arayüz Mantığı
 // ============================================================
 
 const $ = (id) => document.getElementById(id);
 
-const AVATAR = 'https://api.dicebear.com/7.x/bottts/svg?seed=YKS_Mentor';
-const ABI_AVATAR = `<div class="msg-avatar"><img src="${AVATAR}" alt="YKS Mentor"></div>`;
-const COACH_AVATAR = '<div class="msg-avatar" style="background:var(--neon-blue);">🧠</div>';
+// Beyin Emojili Avatarlar
+const ABI_AVATAR = `<div class="msg-avatar" style="background:var(--neon-blue); font-size:20px;">🧠</div>`;
+const COACH_AVATAR = '<div class="msg-avatar" style="background:var(--neon-green); font-size:20px;">🧠</div>';
 
 const MATH_OPTIONS = {
     delimiters: [{ left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false }],
     throwOnError: false,
 };
-const SUBJECTS = ['TYT Matematik', 'TYT Türkçe', 'TYT Fen', 'TYT Sosyal', 'AYT Matematik', 'AYT Edebiyat', 'AYT Fen', 'AYT Sosyal'];
+
+// TYT ve AYT Ders Klasörleri
+const SUBJECT_DATA = {
+    TYT: ['TYT Matematik', 'TYT Türkçe', 'TYT Fen', 'TYT Sosyal'],
+    AYT: ['AYT Matematik', 'AYT Edebiyat', 'AYT Fen', 'AYT Sosyal']
+};
 
 // ---------- Yerel Depolama ----------
 const store = {
-    get(key, fallback) {
-        try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
-        catch { return fallback; }
-    },
-    set(key, value) {
-        try { localStorage.setItem(key, JSON.stringify(value)); } catch { }
-    },
+    get(key, fallback) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; } },
+    set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { } }
 };
 
-function escapeHtml(str) {
-    return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
+function escapeHtml(str) { return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function nl2br(str) { return escapeHtml(str).replace(/\n/g, '<br>'); }
 function todayKey(d = new Date()) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
 
@@ -37,7 +35,7 @@ function showToast(message) {
     el.textContent = message;
     el.classList.remove('hidden');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => el.classList.add('hidden'), 3200);
+    toastTimer = setTimeout(() => el.classList.add('hidden'), 3000);
 }
 
 function renderMath(el) { if (typeof renderMathInElement === 'function') renderMathInElement(el, MATH_OPTIONS); }
@@ -56,7 +54,6 @@ async function postJson(url, body) {
 
 // ---------- KULLANICI DURUMU ----------
 let userStatus = { is_premium: false, remaining: 3 };
-
 async function fetchStatus() {
     try {
         const res = await fetch('/api/status');
@@ -71,7 +68,7 @@ function updateQuotaUI() {
         text.innerHTML = 'Sınırsız 💎';
         text.style.color = 'var(--neon-blue)';
     } else {
-        text.innerHTML = `Hakkın: <strong>${userStatus.remaining}</strong>`;
+        text.innerHTML = `Kalan Hak: <strong>${userStatus.remaining}</strong>`;
         text.style.color = userStatus.remaining === 0 ? 'var(--coral)' : 'var(--accent)';
     }
 }
@@ -139,8 +136,7 @@ function daysLeft() {
     const s = store.get('yks_exam', '');
     if (!s) return null;
     const [y, m, d] = s.split('-').map(Number);
-    const target = new Date(y, m - 1, d);
-    const now = new Date(); now.setHours(0, 0, 0, 0);
+    const target = new Date(y, m - 1, d); const now = new Date(); now.setHours(0,0,0,0);
     return Math.max(0, Math.round((target - now) / 86400000));
 }
 function getProfile() {
@@ -155,17 +151,13 @@ function getProfile() {
 function switchTab(tabId) {
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    
     $('view-' + tabId).classList.add('active');
     document.querySelector(`.nav-item[data-tab="${tabId}"]`).classList.add('active');
-    
     if (tabId === 'archive') loadArchive();
-    if (tabId === 'coach') renderCoachPanel();
+    if (tabId === 'coach') renderStats();
     if (tabId === 'home') scrollEnd($('chat-history'));
 }
-document.querySelectorAll('.nav-item').forEach(btn => {
-    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
-});
+document.querySelectorAll('.nav-item').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
 
 // ---------- 1) SORU ÇÖZ ----------
 const cameraInput = $('camera-input'), galleryInput = $('gallery-input');
@@ -177,21 +169,35 @@ let thread = { subject: 'TYT Matematik', note: '', solution: null, history: [] }
 
 function updateSendState() { solveBtn.disabled = sending || (!selectedFile && messageInput.value.trim() === ''); }
 
-subjectChips.addEventListener('click', (e) => {
-    const chip = e.target.closest('.chip'); if (!chip) return;
-    selectedSubject = chip.dataset.value;
-    subjectChips.querySelectorAll('.chip').forEach((c) => {
-        const active = c === chip;
-        c.classList.toggle('active', active); c.setAttribute('aria-checked', active);
+// TYT / AYT Sekme Mantığı
+function renderSubjects(cat) {
+    const container = $('subject-chips');
+    container.innerHTML = SUBJECT_DATA[cat].map((sub, index) => 
+        `<button class="chip ${index === 0 ? 'active' : ''}" data-value="${sub}">${sub}</button>`
+    ).join('');
+    selectedSubject = SUBJECT_DATA[cat][0];
+    
+    container.querySelectorAll('.chip').forEach(c => {
+        c.addEventListener('click', () => {
+            container.querySelectorAll('.chip').forEach(x => x.classList.remove('active'));
+            c.classList.add('active'); selectedSubject = c.dataset.value;
+        });
+    });
+}
+document.querySelectorAll('.cat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderSubjects(btn.dataset.cat);
     });
 });
+renderSubjects('TYT'); // İlk açılışta TYT yüklensin
 
 function handleFile(file, inputEl) {
     if (!file || !file.type.startsWith('image/')) { showToast('Lütfen bir fotoğraf seç.'); return; }
     selectedFile = file;
-    // Fotoğraf seçildiğinde kullanıcıya geri bildirim verelim
-    messageInput.value = ''; // Input'u temizle
-    messageInput.placeholder = "Fotoğraf seçildi, göndermek için tıkla...";
+    messageInput.value = ''; 
+    messageInput.placeholder = "Fotoğraf seçildi, göndere bas...";
     updateSendState(); 
     if (inputEl) inputEl.value = '';
 }
@@ -321,7 +327,6 @@ function clearImage() {
 const coachMessages = $('coach-messages'), coachInput = $('coach-input'), coachSend = $('coach-send');
 let coachHistory = [], coachSending = false;
 
-const DAILY_LINES = ['Küçük adımlar bile seni hedefine taşır.', 'Bugünkü çalışman, yarınki netlerindir.', 'Yanlış yaptığın soru, öğrenmeye hazır olduğun yerdir.', 'Mükemmel olmak zorunda değilsin. Dünden iyi olmak yeter.'];
 const MOOD_FALLBACK = { 'yorgun': 'Yorgun hissetmen normal. Hedefi küçült: 2-3 soru çöz, sonra dinlen.', 'kaygılı': 'Kaygı, önemsediğin için var. Derin bir nefes al, sadece bugüne odaklan.', 'iyi': 'Güzel! Bu enerjiyle en zorlandığın konudan bir soru çöz.', 'çok motive': 'Enerjin süper! 🚀 Hemen bir Pomodoro başlat.' };
 
 function greeting() {
@@ -332,7 +337,6 @@ function greeting() {
 }
 
 function renderStats() {
-    // Dairesel ilerleme çubuğu hesaplaması
     const goal = getGoal(), done = doneCounter.get();
     const percent = Math.min(100, Math.round((done / goal) * 100));
     const circle = $('goal-circle');
@@ -352,21 +356,18 @@ function renderStats() {
     $('exam-date').value = store.get('yks_exam', '');
     $('pomo-count').textContent = `Bugün ${pomoCounter.get()} tur`;
     $('greeting-text').textContent = greeting();
-}
-
-function renderCoachPanel() {
-    renderStats();
+    
+    // Mood aktifliğini kontrol et
     const mood = store.get('yks_mood', {});
     document.querySelectorAll('.mood-btn').forEach((b) => b.classList.toggle('active', mood.date === todayKey() && mood.key === b.dataset.mood));
 }
 
-// İsim kaydetme ve hedef ayarları
-$('name-save').addEventListener('click', () => { const name = $('name-input').value.trim(); if (!name) return; store.set('yks_name', name); renderStats(); showToast(`Memnun oldum ${name}! 🤝`); });
+// Hedef ve Tarih Ayarları
 $('goal-minus').addEventListener('click', () => { store.set('yks_goal', Math.max(1, getGoal() - 1)); renderStats(); });
 $('goal-plus').addEventListener('click', () => { store.set('yks_goal', Math.min(50, getGoal() + 1)); renderStats(); });
 $('exam-date').addEventListener('change', (e) => { store.set('yks_exam', e.target.value); renderStats(); });
 
-// Mood tıklama
+// Mood
 $('mood-row').addEventListener('click', async (e) => {
     const btn = e.target.closest('.mood-btn'); if (!btn) return;
     const key = btn.dataset.mood; store.set('yks_mood', { date: todayKey(), key });
@@ -379,7 +380,7 @@ $('mood-row').addEventListener('click', async (e) => {
     } catch { note.textContent = MOOD_FALLBACK[key]; }
 });
 
-// Hızlı sorular
+// Hızlı Sorular (Çalışan Kısım)
 document.querySelectorAll('.quick-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         coachInput.value = btn.dataset.prompt;
@@ -390,7 +391,7 @@ document.querySelectorAll('.quick-btn').forEach(btn => {
 
 // Koç Sohbeti
 function updateCoachSend() { coachSend.disabled = coachSending || coachInput.value.trim() === ''; }
-coachInput.addEventListener('input', () => { updateCoachSend(); });
+coachInput.addEventListener('input', updateCoachSend);
 coachInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && isDesktop) { e.preventDefault(); if (!coachSend.disabled) sendCoach(coachInput.value.trim()); } });
 coachSend.addEventListener('click', () => sendCoach(coachInput.value.trim()));
 
@@ -409,7 +410,7 @@ async function sendCoach(text) {
     } finally { coachSending = false; updateCoachSend(); scrollEnd(coachMessages); }
 }
 
-// ---------- Pomodoro (25/5) ----------
+// ---------- Pomodoro (Tam Ekran Destekli) ----------
 const pomo = { mode: 'focus', total: 25 * 60, remaining: 25 * 60, running: false, endAt: 0, timer: null };
 function drawPomo() {
     const m = String(Math.floor(pomo.remaining / 60)).padStart(2, '0');
@@ -423,14 +424,21 @@ function pomoTick() {
     if (pomo.remaining === 0) {
         clearInterval(pomo.timer); pomo.running = false;
         if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-        pomoCounter.bump(); renderStats(); showToast('Tur tamam! 🎉 Mola verebilirsin.');
+        pomoCounter.bump(); renderStats(); showToast('Tur tamam! 🎉');
         setPomoMode();
     }
     drawPomo();
 }
 $('pomo-toggle').addEventListener('click', () => {
-    if (pomo.running) { clearInterval(pomo.timer); pomo.running = false; }
-    else { pomo.running = true; pomo.endAt = Date.now() + pomo.remaining * 1000; pomo.timer = setInterval(pomoTick, 250); }
+    if (pomo.running) { 
+        clearInterval(pomo.timer); pomo.running = false; 
+    } else { 
+        pomo.running = true; pomo.endAt = Date.now() + pomo.remaining * 1000; pomo.timer = setInterval(pomoTick, 250); 
+        // TAM EKRAN KODU
+        if (document.documentElement.requestFullscreen) {
+            document.documentElement.requestFullscreen().catch(() => {});
+        }
+    }
     drawPomo();
 });
 $('pomo-reset').addEventListener('click', setPomoMode);
@@ -438,7 +446,7 @@ $('pomo-reset').addEventListener('click', setPomoMode);
 // ---------- 3) ARŞİV ----------
 let archiveData = [], archiveFilter = 'Hepsi';
 function renderArchiveFilter() {
-    const names = ['Hepsi', ...SUBJECTS.filter((s) => archiveData.some((q) => q.subject === s))];
+    const names = ['Hepsi', ...Object.values(SUBJECT_DATA).flat().filter((s, i, arr) => arr.indexOf(s) === i && archiveData.some((q) => q.subject === s))];
     $('archive-filter').innerHTML = names.map((n) => `<button type="button" class="chip ${n === archiveFilter ? 'active' : ''}" data-filter="${escapeHtml(n)}">${escapeHtml(n)}</button>`).join('');
 }
 $('archive-filter').addEventListener('click', (e) => {
@@ -481,7 +489,7 @@ async function loadArchive() {
     } catch { archiveList.innerHTML = '<div class="glass-card" style="color:var(--coral);">Arşiv yüklenemedi.</div>'; }
 }
 
-// ---------- 4) PDF SINAVI ----------
+// ---------- 4) PDF SINAVI (Boş Çıkma Düzeltildi) ----------
 const countInput = $('pdf-count');
 function clampCount(v) { const n = parseInt(v, 10); return isNaN(n) ? 10 : Math.min(50, Math.max(1, n)); }
 $('count-minus').addEventListener('click', () => { countInput.value = clampCount(clampCount(countInput.value) - 1); });
@@ -491,27 +499,46 @@ countInput.addEventListener('change', () => { countInput.value = clampCount(coun
 $('generate-pdf-btn').addEventListener('click', async () => {
     const btn = $('generate-pdf-btn'); const resetBtn = () => { btn.textContent = 'PDF İndir 📥'; btn.disabled = false; };
     btn.textContent = 'Hazırlanıyor... ⏳'; btn.disabled = true;
+    
     const selectedSubjects = Array.from(document.querySelectorAll('#pdf-subjects input:checked')).map((cb) => cb.value);
     const count = clampCount(countInput.value);
+    
     if (selectedSubjects.length === 0) { showToast('En az bir ders seçmelisin.'); resetBtn(); return; }
+    
     let pdfContainer;
     try {
         const response = await fetch('/history'); const allQuestions = await response.json();
         let filtered = allQuestions.filter((q) => selectedSubjects.includes(q.subject));
+        
         if (filtered.length === 0) { showToast('Seçtiğin derslerde arşivde soru yok.'); resetBtn(); return; }
+        
         filtered = filtered.sort(() => 0.5 - Math.random()).slice(0, count);
+        
+        // PDF Kapsayıcısı (Ekran dışında tutuyoruz ki render olsun ama gözükmesin)
         pdfContainer = document.createElement('div');
-        pdfContainer.style.cssText = 'width:800px;padding:40px;background:white;color:black;font-family:Inter,sans-serif;position:fixed;top:0;left:0;z-index:-1;';
-        let questionsHtml = `<div class="pdf-header"><h1 style="font-size:24px;margin:0;">YKS Sorumatik</h1><p style="margin:5px 0 0 0;font-size:14px;">Kişiselleştirilmiş Deneme Testi</p></div><h3 style="margin-bottom:20px;">SORULAR</h3>`;
-        let answersHtml = `<div class="pdf-answers"><h3 style="margin-bottom:20px;border-top:2px solid #000;padding-top:20px;">ÇÖZÜMLER VE TAKTİKLER</h3>`;
+        pdfContainer.style.cssText = 'width:800px; padding:40px; background:white; color:black; font-family:Inter,sans-serif; position:fixed; top:0; left:-9999px; z-index:9999;';
+        
+        let html = `<div style="text-align:center; margin-bottom:30px; border-bottom:2px solid #000; padding-bottom:10px;"><h1>YKS Sorumatik</h1><p>Kişiselleştirilmiş Deneme Testi</p></div><h3>SORULAR</h3>`;
+        
         filtered.forEach((q, index) => {
-            questionsHtml += `<div class="pdf-question"><strong style="font-size:16px;">Soru ${index + 1} (${escapeHtml(q.subject)})</strong><br><img src="data:image/jpeg;base64,${q.image}"></div>`;
-            answersHtml += `<div class="pdf-answer-item"><strong style="font-size:16px;color:#1e3a8a;">Soru ${index + 1} Çözümü</strong><br><div style="font-size:14px;line-height:1.6;margin-top:10px;">${marked.parse(q.answer)}</div></div>`;
+            html += `<div style="margin-bottom:30px; page-break-inside:avoid;"><strong>Soru ${index + 1} (${escapeHtml(q.subject)})</strong><br><img src="data:image/jpeg;base64,${q.image}" style="max-width:100%; max-height:400px; display:block; margin:10px 0;"></div>`;
         });
-        answersHtml += '</div>';
-        pdfContainer.innerHTML = questionsHtml + answersHtml;
-        document.body.appendChild(pdfContainer); renderMath(pdfContainer);
-        const opt = { margin: 10, filename: `YKS_Sorumatik_Test_${Date.now()}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+        
+        html += `<div style="page-break-before:always;"><h3 style="border-top:2px solid #000; padding-top:20px;">ÇÖZÜMLER</h3>`;
+        
+        filtered.forEach((q, index) => {
+            html += `<div style="margin-bottom:30px; page-break-inside:avoid;"><strong>Soru ${index + 1} Çözümü</strong><br><div style="font-size:14px; line-height:1.6;">${marked.parse(q.answer)}</div></div>`;
+        });
+        html += `</div>`;
+        
+        pdfContainer.innerHTML = html;
+        document.body.appendChild(pdfContainer); 
+        renderMath(pdfContainer);
+        
+        // Resimlerin yüklenmesini bekle
+        await new Promise(r => setTimeout(r, 600));
+        
+        const opt = { margin: 10, filename: `YKS_Test_${Date.now()}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
         await html2pdf().set(opt).from(pdfContainer).save(); showToast('PDF indirildi. Bol şans! 💪');
     } catch (error) { console.error(error); showToast('PDF oluşturulurken bir hata oluştu.'); }
     finally { if (pdfContainer && pdfContainer.parentNode) pdfContainer.parentNode.removeChild(pdfContainer); resetBtn(); }
@@ -531,4 +558,8 @@ document.querySelectorAll('.buy-btn').forEach(btn => {
 });
 
 // ---------- Başlangıç ----------
-fetchStatus(); renderStats(); drawPomo(); updateSendState(); updateCoachSend();
+fetchStatus(); 
+renderStats(); 
+drawPomo(); 
+updateSendState(); 
+updateCoachSend();

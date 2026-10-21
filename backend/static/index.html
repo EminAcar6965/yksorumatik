@@ -7,7 +7,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
-<!-- DÜZELTİLEN YOL: /static/style.css -->
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -15,7 +14,11 @@
 
   <header class="topbar">
     <div class="brand">🧠 <span>YKS Sorumatik</span></div>
-    <button id="quota-chip" class="quota-chip" type="button"><span id="quota-text">…</span></button>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <button id="quota-chip" class="quota-chip" type="button"><span id="quota-text">…</span></button>
+      <button id="auth-btn" class="quota-chip" type="button">Giriş Yap</button>
+      <button id="admin-btn" class="quota-chip hidden" type="button">Admin</button>
+    </div>
   </header>
 
   <main>
@@ -48,7 +51,11 @@
 
       <div class="stat-grid">
         <div class="glass-card stat"><div class="stat-ico">🔥</div><div class="stat-val" id="stat-streak">0</div><div class="muted small">Gün serisi</div></div>
-        <div class="glass-card stat"><div class="stat-ico">⏳</div><div class="stat-val" id="stat-exam">–</div><div class="muted small">Sınava kalan gün</div></div>
+        <div class="glass-card stat">
+          <div class="stat-ico">⏳</div>
+          <div class="stat-val" id="stat-exam">–</div>
+          <div class="muted small" id="exam-countdown">Sınava kalan</div>
+        </div>
         <div class="glass-card stat"><div class="stat-ico">✅</div><div class="stat-val" id="stat-total">0</div><div class="muted small">Toplam çözülen</div></div>
         <div class="glass-card stat"><div class="stat-ico">🎯</div><div class="stat-val" id="stat-focus">0</div><div class="muted small">Bugün odak (dk)</div></div>
       </div>
@@ -184,13 +191,13 @@
         <div class="plan popular">
           <div class="ribbon">Popüler</div>
           <div class="plan-name">Aylık</div>
-          <div class="plan-price">149 ₺<small>/ay</small></div>
+          <div class="plan-price"><del style="font-size:18px; color:#94a3b8; margin-right:8px;">200 ₺</del>149 ₺<small>/ay</small></div>
           <ul><li>♾️ Sınırsız soru çözümü</li><li>📄 PDF deneme indirme</li></ul>
           <button class="buy-btn primary-btn full" data-plan="monthly" type="button">Aylık Al</button>
         </div>
         <div class="plan">
           <div class="plan-name">Yıllık</div>
-          <div class="plan-price">999 ₺<small>/yıl</small></div>
+          <div class="plan-price"><del style="font-size:18px; color:#94a3b8; margin-right:8px;">2400 ₺</del>1499 ₺<small>/yıl</small></div>
           <ul><li>♾️ Sınırsız soru çözümü</li><li>📄 PDF deneme indirme</li></ul>
           <button class="buy-btn primary-btn full" data-plan="yearly" type="button">Yıllık Al</button>
         </div>
@@ -218,7 +225,7 @@
   </div>
 </div>
 
-<!-- Premium uyarı penceresi -->
+<!-- Premium modal -->
 <div id="premium-modal" class="modal hidden">
   <div class="modal-box">
     <div style="font-size:42px">🔒</div>
@@ -229,6 +236,28 @@
   </div>
 </div>
 
+<!-- Auth modal -->
+<div id="auth-modal" class="modal hidden">
+  <div class="modal-box">
+    <h3 id="auth-title">Giriş Yap</h3>
+    <input id="auth-email" class="text-input" type="email" placeholder="E-posta">
+    <input id="auth-password" class="text-input" type="password" placeholder="Şifre">
+    <button id="auth-submit" class="primary-btn full">Giriş Yap</button>
+    <button id="auth-switch" class="ghost-btn full">Hesabın yok mu? Kayıt Ol</button>
+    <button id="auth-close" class="ghost-btn full">Kapat</button>
+  </div>
+</div>
+
+<!-- Admin modal -->
+<div id="admin-modal" class="modal hidden">
+  <div class="modal-box" style="max-width: 600px; max-height: 80vh; overflow-y: auto;">
+    <h3>Admin Paneli</h3>
+    <div id="admin-stats" class="stat-grid" style="grid-template-columns: 1fr 1fr 1fr;"></div>
+    <div id="admin-user-list" style="margin-top: 16px;"></div>
+    <button id="admin-close" class="ghost-btn full" style="margin-top: 12px;">Kapat</button>
+  </div>
+</div>
+
 <div id="toast" class="toast hidden"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
@@ -236,7 +265,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-<!-- DÜZELTİLEN YOL: /static/app.js -->
 <script src="/static/app.js"></script>
 </body>
 </html>

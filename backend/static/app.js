@@ -1,7 +1,5 @@
 'use strict';
-// ============================================================
-// YKS Sorumatik - Arayüz Mantığı
-// ============================================================
+
 const $ = (id) => document.getElementById(id);
 const setText = (id, v) => { const e = $(id); if (e) e.textContent = v; };
 
@@ -24,6 +22,13 @@ const store = {
     get(key, fallback) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; } },
     set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { } },
 };
+
+let authToken = localStorage.getItem('yks_token') || null;
+
+function authHeaders() {
+    return authToken ? { 'Authorization': `Bearer ${authToken}` } : {};
+}
+
 function escapeHtml(str) { return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function nl2br(str) { return escapeHtml(str).replace(/\n/g, '<br>'); }
 function todayKey(d = new Date()) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
@@ -47,12 +52,15 @@ function renderMarkdown(text) {
 
 async function postJson(url, body) {
     let response;
-    try { response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); } 
-    catch { throw new Error('Bağlantı kurulamadı.'); }
+    try {
+        response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify(body) });
+    } catch {
+        throw new Error('Bağlantı kurulamadı.');
+    }
     let data = {}; try { data = await response.json(); } catch { }
-    if (!response.ok || !data.answer) {
+    if (!response.ok || (!data.answer && !data.token && !data.ok)) {
         const msg = [data.error, data.detail].find((m) => typeof m === 'string');
-        const err = new Error(msg || 'Şu an cevap hazırlanamadı.'); err.status = response.status; throw err;
+        const err = new Error(msg || 'İşlem başarısız.'); err.status = response.status; throw err;
     }
     return data;
 }
@@ -75,7 +83,7 @@ function compressImage(file, maxSide = 1600, quality = 0.85) {
 }
 
 // ---------- KULLANICI DURUMU ----------
-let userStatus = { is_premium: false, remaining: 3 };
+let userStatus = { is_premium: false, remaining: 3, email: '', role: 'user' };
 
 function applyStatus(data) {
     if (!data) return;
@@ -83,19 +91,29 @@ function applyStatus(data) {
     if (typeof data.remaining === 'number') userStatus.remaining = data.remaining;
     if ('plan' in data) userStatus.plan = data.plan;
     if ('premium_until' in data) userStatus.premium_until = data.premium_until;
+    if ('email' in data) userStatus.email = data.email;
+    if ('role' in data) userStatus.role = data.role;
     updateQuotaUI(); updatePremiumUI();
 }
+
 async function fetchStatus() {
-    try { const res = await fetch('/api/status'); if (res.ok) applyStatus(await res.json()); } catch (e) {}
+    try {
+        const res = await fetch('/api/status', { headers: authHeaders() });
+        if (res.ok) applyStatus(await res.json());
+    } catch (e) { console.error(e); }
 }
+
 function updateQuotaUI() {
     const text = $('quota-text'); if (!text) return;
-    if (userStatus.is_premium) { text.textContent = 'Sınırsız 💎'; text.style.color = 'var(--neon-blue)'; } 
+    if (userStatus.is_premium) { text.textContent = 'Sınırsız 💎'; text.style.color = 'var(--neon-blue)'; }
     else {
         text.innerHTML = `Kalan Hak: <strong>${userStatus.remaining}</strong>`;
         text.style.color = userStatus.remaining === 0 ? 'var(--coral)' : 'var(--accent)';
     }
+    $('auth-btn').textContent = userStatus.email ? 'Profil' : 'Giriş Yap';
+    $('admin-btn').classList.toggle('hidden', userStatus.role !== 'admin');
 }
+
 const PLAN_NAMES = { weekly: 'Haftalık', monthly: 'Aylık', yearly: 'Yıllık' };
 function updatePremiumUI() {
     const lock = $('pdf-lock'); if (lock) lock.classList.toggle('hidden', !!userStatus.is_premium);
@@ -106,11 +124,104 @@ function updatePremiumUI() {
         box.classList.remove('hidden');
     } else box.classList.add('hidden');
 }
-function openPremiumModal() { $('premium-modal').classList.remove('hidden'); }
-function closePremiumModal() { $('premium-modal').classList.add('hidden'); }
-$('modal-close').addEventListener('click', closePremiumModal);
-$('modal-go-premium').addEventListener('click', () => { closePremiumModal(); switchTab('premium'); });
-$('quota-chip').addEventListener('click', () => switchTab('premium'));
+
+// ---------- AUTH ----------
+let authMode = 'login'; // 'login' | 'register'
+
+function openAuthModal() {
+    authMode = 'login';
+    $('auth-title').textContent = 'Giriş Yap';
+    $('auth-submit').textContent = 'Giriş Yap';
+    $('auth-switch').textContent = 'Hesabın yok mu? Kayıt Ol';
+    $('auth-email').value = ''; $('auth-password').value = '';
+    $('auth-modal').classList.remove('hidden');
+}
+
+function closeAuthModal() { $('auth-modal').classList.add('hidden'); }
+
+$('auth-btn').addEventListener('click', () => {
+    if (userStatus.email) {
+        // Profil: çıkış yap
+        if (confirm('Çıkış yapmak istiyor musun?')) {
+            authToken = null; localStorage.removeItem('yks_token');
+            userStatus.email = ''; userStatus.role = 'user';
+            fetchStatus(); showToast('Çıkış yapıldı.');
+        }
+    } else {
+        openAuthModal();
+    }
+});
+
+$('auth-close').addEventListener('click', closeAuthModal);
+$('auth-switch').addEventListener('click', () => {
+    authMode = authMode === 'login' ? 'register' : 'login';
+    $('auth-title').textContent = authMode === 'login' ? 'Giriş Yap' : 'Kayıt Ol';
+    $('auth-submit').textContent = authMode === 'login' ? 'Giriş Yap' : 'Kayıt Ol';
+    $('auth-switch').textContent = authMode === 'login' ? 'Hesabın yok mu? Kayıt Ol' : 'Zaten hesabın var mı? Giriş Yap';
+});
+
+$('auth-submit').addEventListener('click', async () => {
+    const email = $('auth-email').value.trim();
+    const password = $('auth-password').value;
+    if (!email || !password) { showToast('E-posta ve şifre gerekli.'); return; }
+    try {
+        const endpoint = authMode === 'login' ? '/api/login' : '/api/register';
+        const data = await postJson(endpoint, { email, password });
+        if (data.token) {
+            authToken = data.token; localStorage.setItem('yks_token', authToken);
+            closeAuthModal(); await fetchStatus(); showToast(authMode === 'login' ? 'Giriş yapıldı! 👋' : 'Kayıt olundu! 🎉');
+            if (data.role === 'admin') showToast('Admin yetkisi aktif.');
+        }
+    } catch (err) { showToast(err.message); }
+});
+
+// ---------- ADMIN ----------
+$('admin-btn').addEventListener('click', async () => {
+    try {
+        const res = await fetch('/api/admin/stats', { headers: authHeaders() });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Yetkisiz');
+        $('admin-stats').innerHTML = `
+            <div class="glass-card stat"><div class="stat-ico">👥</div><div class="stat-val">${data.total}</div><div class="muted small">Toplam Kayıtlı</div></div>
+            <div class="glass-card stat"><div class="stat-ico">💎</div><div class="stat-val">${data.premium}</div><div class="muted small">Premium</div></div>
+            <div class="glass-card stat"><div class="stat-ico">🆓</div><div class="stat-val">${data.free}</div><div class="muted small">Ücretsiz</div></div>
+        `;
+        $('admin-user-list').innerHTML = data.recent.map(u => `
+            <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--glass-border); font-size:13px;">
+                <span>${escapeHtml(u.email)}</span>
+                <span>${u.premium_until > Date.now()/1000 ? '💎 Premium' : '🆓 Ücretsiz'}</span>
+            </div>
+        `).join('');
+        $('admin-modal').classList.remove('hidden');
+    } catch (err) { showToast(err.message); }
+});
+$('admin-close').addEventListener('click', () => $('admin-modal').classList.add('hidden'));
+
+// ---------- GERİ SAYIM ----------
+let countdownInterval = null;
+
+function updateCountdown() {
+    const s = store.get('yks_exam', '');
+    const el = $('exam-countdown');
+    if (!el) return;
+    if (!s) { el.textContent = 'Sınav tarihi seçilmedi'; setText('stat-exam', '–'); return; }
+    const target = new Date(s + 'T00:00:00');
+    const now = new Date();
+    const diff = target - now;
+    if (diff <= 0) { el.textContent = 'Sınav günü! Başarılar 🍀'; setText('stat-exam', '0'); return; }
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const secs = Math.floor((diff % (1000 * 60)) / 1000);
+    setText('stat-exam', days);
+    el.textContent = `${days}g ${hours}s ${mins}d ${secs}sn`;
+}
+
+function startCountdown() {
+    if (countdownInterval) clearInterval(countdownInterval);
+    updateCountdown();
+    countdownInterval = setInterval(updateCountdown, 1000);
+}
 
 // ---------- MESAJ BALONLARI ----------
 function messageHtml({ role, body, cls = '', avatar = ABI_AVATAR }) {
@@ -128,15 +239,6 @@ function addAiMarkdown(container, text, avatar) {
     const el = addMessage(container, { role: 'ai', avatar, body: '' });
     const bubble = el.querySelector('.msg-bubble');
     bubble.innerHTML = renderMarkdown(text); renderMath(bubble); scrollEnd(container); return el;
-}
-function addQuickReplies(container, items) {
-    const row = document.createElement('div'); row.className = 'quick-replies';
-    items.forEach((item) => {
-        const btn = document.createElement('button'); btn.type = 'button'; btn.textContent = item.label;
-        btn.addEventListener('click', () => { row.remove(); item.action(); });
-        row.appendChild(btn);
-    });
-    container.appendChild(row); scrollEnd(container);
 }
 
 // ---------- SAYAÇLAR ----------
@@ -188,14 +290,14 @@ function switchTab(tabId) {
     $('view-' + tabId).classList.add('active');
     const nav = document.querySelector(`.nav-item[data-tab="${tabId}"]`); if (nav) nav.classList.add('active');
     if (tabId === 'archive') { loadArchive(); updatePremiumUI(); }
-    if (tabId === 'panel') renderStats();
+    if (tabId === 'panel') { renderStats(); startCountdown(); }
     if (tabId === 'solve') scrollEnd($('chat-history'));
     if (tabId === 'coach') scrollEnd($('coach-messages'));
     if (tabId === 'premium') { fetchStatus(); }
 }
 document.querySelectorAll('.nav-item').forEach((btn) => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
 
-// ---------- 1) PANELİM ----------
+// ---------- PANELİM ----------
 function renderStats() {
     const goal = getGoal(), done = doneCounter.get();
     const percent = Math.min(100, Math.round((done / goal) * 100));
@@ -208,7 +310,6 @@ function renderStats() {
     setText('goal-percent', `${percent}%`);
     setText('stat-streak', getStreak());
     setText('stat-goal', `${Math.min(done, 99)}/${goal}`);
-    const left = daysLeft(); setText('stat-exam', left === null ? '–' : left);
     setText('stat-total', store.get('yks_total', 0));
     setText('stat-focus', focusCounter.get());
     setText('pomo-count', `Bugün ${pomoCounter.get()} tur`);
@@ -217,6 +318,7 @@ function renderStats() {
     const nameIn = $('name-input'); if (nameIn && document.activeElement !== nameIn) nameIn.value = store.get('yks_name', '');
     const mood = store.get('yks_mood', {});
     document.querySelectorAll('.mood-btn').forEach((b) => b.classList.toggle('active', mood.date === todayKey() && mood.key === b.dataset.mood));
+    updateCountdown();
 }
 function greeting() {
     const h = new Date().getHours();
@@ -246,7 +348,7 @@ $('mood-row').addEventListener('click', async (e) => {
     } catch { note.textContent = MOOD_FALLBACK[key] || ''; }
 });
 
-// ---------- 2) SORU ÇÖZ ----------
+// ---------- SORU ÇÖZ ----------
 const cameraInput = $('camera-input'), galleryInput = $('gallery-input');
 const solveBtn = $('solve-btn'), messageInput = $('message-input'), chatHistory = $('chat-history');
 let selectedFile = null, selectedPreviewUrl = null, selectedSubject = 'TYT Matematik', sending = false;
@@ -288,10 +390,7 @@ messageInput.addEventListener('keydown', (e) => {
 });
 solveBtn.addEventListener('click', sendMessage);
 
-function setSending(state) {
-    sending = state; messageInput.disabled = state; updateSendState();
-    if (!state && isDesktop) messageInput.focus();
-}
+function setSending(state) { sending = state; messageInput.disabled = state; updateSendState(); if (!state && isDesktop) messageInput.focus(); }
 function clearTransient() { chatHistory.querySelectorAll('.feedback-row,.quick-replies').forEach((n) => n.remove()); }
 
 async function sendMessage() {
@@ -304,7 +403,7 @@ async function sendMessage() {
     if (selectedFile) await solveImage(text); else await askFollowup(text);
 }
 
-function handleLimit(err) { showToast('Günlük hakkın doldu.'); switchTab('premium'); }
+function handleLimit() { showToast('Günlük hakkın doldu.'); switchTab('premium'); }
 
 async function solveImage(note) {
     const fileToSend = selectedFile, previewUrl = selectedPreviewUrl, subject = selectedSubject;
@@ -315,7 +414,7 @@ async function solveImage(note) {
     const formData = new FormData();
     formData.append('file', fileToSend, 'soru.jpg'); formData.append('subject', subject); formData.append('note', note);
     try {
-        const response = await fetch('/solve', { method: 'POST', body: formData });
+        const response = await fetch('/solve', { method: 'POST', headers: authHeaders(), body: formData });
         const data = await response.json().catch(() => ({}));
         typing.remove();
         if (!response.ok || !data.answer) {
@@ -366,18 +465,18 @@ function onUnderstood() {
     if (done === goal) extra = '🎯 Günlük hedefini tamamladın, tebrikler!';
     else if (done < goal) extra += ` Hedefe ${goal - done} soru kaldı.`;
     addMessage(chatHistory, { role: 'ai', body: `${PRAISE[Math.floor(Math.random() * PRAISE.length)]}<br><br>${escapeHtml(extra)}` });
-    addQuickReplies(chatHistory, [
-        { label: '🔁 Benzer soru ver', action: () => quickSend('Buna benzer, biraz daha zor bir soru ver.') },
-        { label: '📷 Yeni soru ekle', action: () => cameraInput.click() },
-    ]);
+    const row = document.createElement('div'); row.className = 'quick-replies';
+    row.innerHTML = `<button type="button" onclick="quickSend('Buna benzer, biraz daha zor bir soru ver.')">🔁 Benzer soru ver</button>
+                     <button type="button" onclick="cameraInput.click()">📷 Yeni soru ekle</button>`;
+    chatHistory.appendChild(row); scrollEnd(chatHistory);
 }
 function onNotUnderstood() {
     addMessage(chatHistory, { role: 'user', body: 'Anlaşılmadı 🤔' });
     addMessage(chatHistory, { role: 'ai', body: 'Sorun değil, birlikte netleştirelim. 💪<br>Hangi kısımda takıldın?' });
-    addQuickReplies(chatHistory, [
-        { label: 'Daha basit anlat', action: () => quickSend('Bunu daha basit ve kısa cümlelerle anlat.') },
-        { label: 'Başka yoldan çöz', action: () => quickSend('Bu soruyu başka bir yöntemle çöz.') },
-    ]);
+    const row = document.createElement('div'); row.className = 'quick-replies';
+    row.innerHTML = `<button type="button" onclick="quickSend('Bunu daha basit ve kısa cümlelerle anlat.')">Daha basit anlat</button>
+                     <button type="button" onclick="quickSend('Bu soruyu başka bir yöntemle çöz.')">Başka yoldan çöz</button>`;
+    chatHistory.appendChild(row); scrollEnd(chatHistory);
     messageInput.focus();
 }
 function quickSend(text) { messageInput.value = text; updateSendState(); sendMessage(); }
@@ -391,7 +490,7 @@ function clearImage() {
 
 addMessage(chatHistory, { role: 'ai', body: 'Merhaba! 👋 Bir soru fotoğrafı yükle ya da takıldığın yeri yaz, adım adım çözelim.' });
 
-// ---------- 3) KOÇ ----------
+// ---------- KOÇ ----------
 const coachMessages = $('coach-messages'), coachInput = $('coach-input'), coachSend = $('coach-send');
 let coachHistory = [], coachSending = false;
 
@@ -423,9 +522,8 @@ async function sendCoach(text) {
     } finally { coachSending = false; updateCoachSend(); scrollEnd(coachMessages); }
 }
 
-// ---------- 4) ODAKLAN ----------
+// ---------- ODAKLAN ----------
 const pomo = { total: 25 * 60, remaining: 25 * 60, running: false, endAt: 0, timer: null, wake: null };
-
 function fmt(sec) { return `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`; }
 function drawPomo() {
     const t = fmt(pomo.remaining);
@@ -437,18 +535,9 @@ function drawPomo() {
 }
 async function lockWake() { try { if (navigator.wakeLock) pomo.wake = await navigator.wakeLock.request('screen'); } catch { } }
 function unlockWake() { try { if (pomo.wake) { pomo.wake.release(); pomo.wake = null; } } catch { } }
-
-function openPomoFull() {
-    $('pomo-full').classList.remove('hidden');
-    const el = document.documentElement;
-    if (el.requestFullscreen && !document.fullscreenElement) el.requestFullscreen().catch(() => { });
-}
-function closePomoFull() {
-    $('pomo-full').classList.add('hidden');
-    if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => { });
-}
+function openPomoFull() { $('pomo-full').classList.remove('hidden'); const el = document.documentElement; if (el.requestFullscreen && !document.fullscreenElement) el.requestFullscreen().catch(() => { }); }
+function closePomoFull() { $('pomo-full').classList.add('hidden'); if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => { }); }
 document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) $('pomo-full').classList.add('hidden'); });
-
 function resetPomo() { clearInterval(pomo.timer); pomo.running = false; pomo.remaining = pomo.total; unlockWake(); drawPomo(); }
 function pomoTick() {
     pomo.remaining = Math.max(0, Math.round((pomo.endAt - Date.now()) / 1000));
@@ -462,12 +551,8 @@ function pomoTick() {
     drawPomo();
 }
 function togglePomo() {
-    if (pomo.running) {
-        clearInterval(pomo.timer); pomo.running = false; unlockWake();
-    } else {
-        pomo.running = true; pomo.endAt = Date.now() + pomo.remaining * 1000;
-        pomo.timer = setInterval(pomoTick, 250); lockWake(); openPomoFull();
-    }
+    if (pomo.running) { clearInterval(pomo.timer); pomo.running = false; unlockWake(); }
+    else { pomo.running = true; pomo.endAt = Date.now() + pomo.remaining * 1000; pomo.timer = setInterval(pomoTick, 250); lockWake(); openPomoFull(); }
     drawPomo();
 }
 document.addEventListener('visibilitychange', () => { if (pomo.running && document.visibilityState === 'visible') { lockWake(); pomoTick(); } });
@@ -482,7 +567,7 @@ document.querySelectorAll('.dur-chip').forEach((c) => c.addEventListener('click'
     c.classList.add('active'); pomo.total = Number(c.dataset.min) * 60; pomo.remaining = pomo.total; drawPomo();
 }));
 
-// ---------- 5) ARŞİV ----------
+// ---------- ARŞİV ----------
 let archiveData = [], archiveFilter = 'Hepsi';
 function renderArchiveFilter() {
     const names = ['Hepsi', ...ALL_SUBJECTS.filter((s) => archiveData.some((q) => q.subject === s))];
@@ -516,12 +601,12 @@ function renderArchiveList() {
 async function loadArchive() {
     const list = $('archive-list'); list.innerHTML = '<div class="glass-card muted">Yükleniyor...</div>';
     try {
-        const response = await fetch('/history'); if (!response.ok) throw new Error();
+        const response = await fetch('/history', { headers: authHeaders() }); if (!response.ok) throw new Error();
         archiveData = await response.json(); archiveFilter = 'Hepsi'; renderArchiveFilter(); renderArchiveList();
     } catch { list.innerHTML = '<div class="glass-card" style="color:var(--coral)">Arşiv yüklenemedi.</div>'; }
 }
 
-// ---------- 6) PDF (Premium) ----------
+// ---------- PDF ----------
 $('pdf-subjects').innerHTML = ALL_SUBJECTS.map((s) => `<label><input type="checkbox" value="${escapeHtml(s)}" checked> ${escapeHtml(s)}</label>`).join('');
 const countInput = $('pdf-count');
 function clampCount(v) { const n = parseInt(v, 10); return isNaN(n) ? 10 : Math.min(50, Math.max(1, n)); }
@@ -540,7 +625,7 @@ $('generate-pdf-btn').addEventListener('click', async () => {
     btn.textContent = 'Hazırlanıyor... ⏳'; btn.disabled = true;
     let pdfContainer;
     try {
-        const response = await fetch('/history?pdf=1');
+        const response = await fetch('/history?pdf=1', { headers: authHeaders() });
         if (response.status === 403) { openPremiumModal(); fetchStatus(); return; }
         if (!response.ok) throw new Error('history');
         const all = await response.json();
@@ -548,9 +633,8 @@ $('generate-pdf-btn').addEventListener('click', async () => {
         if (filtered.length === 0) { showToast('Seçtiğin derslerde arşivde soru yok.'); return; }
         filtered = filtered.sort(() => 0.5 - Math.random()).slice(0, count);
 
-        // HATA DÜZELTİLDİ: z-index ve görünürlük ayarlandı.
         pdfContainer = document.createElement('div');
-        pdfContainer.style.cssText = 'width:794px;padding:40px;background:#fff;color:#000;font-family:Inter,Arial,sans-serif;position:fixed;top:0;left:0;z-index:9999;opacity:0;pointer-events:none;';
+        pdfContainer.style.cssText = 'width:794px;padding:40px;background:#fff;color:#000;font-family:Inter,Arial,sans-serif;position:fixed;top:0;left:0;z-index:9999;pointer-events:none;';
         let html = `<div style="text-align:center;margin-bottom:30px;border-bottom:2px solid #000;padding-bottom:10px"><h1 style="margin:0">YKS Sorumatik</h1><p>Kişiselleştirilmiş Deneme Testi</p></div><h3>SORULAR</h3>`;
         filtered.forEach((q, i) => {
             html += `<div style="margin-bottom:30px;page-break-inside:avoid"><strong>Soru ${i + 1} (${escapeHtml(q.subject)})</strong><br><img src="data:image/jpeg;base64,${q.image}" style="max-width:100%;max-height:400px;display:block;margin:10px 0"></div>`;
@@ -584,11 +668,11 @@ $('generate-pdf-btn').addEventListener('click', async () => {
     }
 });
 
-// ---------- 7) PREMIUM ----------
+// ---------- PREMIUM ----------
 document.querySelectorAll('.buy-btn').forEach((btn) => btn.addEventListener('click', async () => {
     const originalText = btn.textContent; btn.textContent = 'İşleniyor...'; btn.disabled = true;
     try {
-        const res = await fetch('/api/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan: btn.dataset.plan }) });
+        const res = await fetch('/api/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify({ plan: btn.dataset.plan }) });
         const data = await res.json().catch(() => ({}));
         if (res.ok) { showToast('Ödeme başarılı! Artık sınırsız üyesin. 🎉'); applyStatus(data); await fetchStatus(); switchTab('panel'); }
         else showToast(data.error || 'Ödeme sırasında bir hata oluştu.');
@@ -596,9 +680,14 @@ document.querySelectorAll('.buy-btn').forEach((btn) => btn.addEventListener('cli
     finally { btn.textContent = originalText; btn.disabled = false; }
 }));
 
+function openPremiumModal() { $('premium-modal').classList.remove('hidden'); }
+function closePremiumModal() { $('premium-modal').classList.add('hidden'); }
+$('modal-close').addEventListener('click', closePremiumModal);
+$('modal-go-premium').addEventListener('click', () => { closePremiumModal(); switchTab('premium'); });
+$('quota-chip').addEventListener('click', () => switchTab('premium'));
+
 // ---------- Başlangıç ----------
-fetchStatus();
-renderStats();
-drawPomo();
-updateSendState();
-updateCoachSend();
+fetchStatus().then(() => {
+    renderStats();
+    startCountdown();
+});

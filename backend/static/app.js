@@ -135,6 +135,7 @@ function toggleAuthModeUI() {
     $('auth-switch').textContent = isReg ? 'Zaten hesabın var mı? Giriş Yap' : 'Hesabın yok mu? Kayıt Ol';
     $('auth-register-fields').classList.toggle('hidden', !isReg);
     $('auth-password-confirm-wrap').classList.toggle('hidden', !isReg);
+    $('auth-code-wrap').classList.toggle('hidden', !isReg);
 }
 $('auth-close').addEventListener('click', () => $('auth-modal').classList.add('hidden'));
 $('auth-switch').addEventListener('click', () => { authMode = authMode === 'login' ? 'register' : 'login'; toggleAuthModeUI(); });
@@ -152,106 +153,108 @@ $('auth-submit').addEventListener('click', async () => {
     try {
         if (authMode === 'login') {
             const data = await postJson('/api/login', { email, password });
-            if (data.token) { authToken = data.token; localStorage.setItem('yks_token', authToken); $('auth-modal').classList.add('hidden'); await fetchStatus(); showToast('Giriş yapıldı! 👋'); }
+            if (data.token) { authToken = data.token; localStorage.setItem('yks_token', authToken); $('auth-modal').classList.add('hidden'); await fetchStatus(); showToast('Giriş yapıldı! 👋'); switchTab('settings'); }
         } else {
             const name = $('auth-name').value.trim(); const code = $('auth-code').value.trim(); const passConfirm = $('auth-password-confirm').value;
             if (password !== passConfirm) { showToast('Şifreler uyuşmuyor.'); return; }
             if (!name || !code) { showToast('İsim ve kod gerekli.'); return; }
             const data = await postJson('/api/register', { email, password, name, code });
-            if (data.token) { authToken = data.token; localStorage.setItem('yks_token', authToken); $('auth-modal').classList.add('hidden'); await fetchStatus(); showToast('Kayıt olundu! 🎉'); }
+            if (data.token) { authToken = data.token; localStorage.setItem('yks_token', authToken); $('auth-modal').classList.add('hidden'); await fetchStatus(); showToast('Kayıt olundu! 🎉'); switchTab('settings'); }
         }
     } catch (err) { showToast(err.message); }
 });
 
-// ---------- AYARLAR LİSTE TIKLAMALARI ----------
-$('setting-account').addEventListener('click', () => {
-    if (!userStatus.email) {
-        openAuthModal();
-    } else {
-        $('acc-modal-email').textContent = userStatus.email;
-        $('account-manage-modal').classList.remove('hidden');
+// ---------- ALT SAYFALAR (AYARLAR İÇİN) ----------
+function openSubView(targetId) {
+    switchTab(targetId);
+    
+    if (targetId === 'setting-account') {
+        const el = $('account-page-content');
+        if (!userStatus.email) {
+            el.innerHTML = `
+                <p class="muted small">Şu an anonim olarak kullanıyorsunuz. İlerlemeyi kaydetmek için hesap oluşturun.</p>
+                <button id="subpage-login-btn" class="primary-btn full" style="margin-top:15px;">Giriş Yap / Kayıt Ol</button>
+            `;
+            $('subpage-login-btn').addEventListener('click', openAuthModal);
+        } else {
+            el.innerHTML = `
+                <p class="small" style="margin-top:8px;"><strong>Ad:</strong> ${escapeHtml(userStatus.name)}</p>
+                <p class="small"><strong>E-posta:</strong> ${escapeHtml(userStatus.email)}</p>
+                <div style="display:flex; flex-direction:column; gap:8px; margin-top:20px;">
+                    <button id="subpage-logout-btn" class="ghost-btn full">Çıkış Yap</button>
+                    <button id="subpage-delete-btn" class="ghost-btn full" style="border-color:var(--coral); color:var(--coral);">Hesabı Sil</button>
+                </div>
+            `;
+            $('subpage-logout-btn').addEventListener('click', () => {
+                if (confirm('Çıkış yapmak istiyor musunuz?')) { authToken = null; localStorage.removeItem('yks_token'); fetchStatus(); switchTab('settings'); }
+            });
+            $('subpage-delete-btn').addEventListener('click', async () => {
+                if (confirm('Hesabınızı ve tüm verilerinizi kalıcı olarak silmek istediğinize emin misiniz?')) {
+                    try { await fetch('/api/delete-account', { method: 'DELETE', headers: authHeaders() }); authToken = null; localStorage.removeItem('yks_token'); fetchStatus(); switchTab('settings'); showToast('Hesap silindi.'); } catch { showToast('Hesap silinemedi.'); }
+                }
+            });
+        }
     }
-});
-$('acc-close-btn').addEventListener('click', () => $('account-manage-modal').classList.add('hidden'));
-$('acc-logout-btn').addEventListener('click', () => {
-    if (confirm('Çıkış yapmak istiyor musunuz?')) {
-        authToken = null; localStorage.removeItem('yks_token');
-        $('account-manage-modal').classList.add('hidden');
-        fetchStatus();
+    
+    if (targetId === 'setting-premium') {
+        const el = $('premium-page-content');
+        if (userStatus.is_premium && userStatus.premium_until) {
+            const daysLeft = Math.max(0, Math.ceil((userStatus.premium_until * 1000 - Date.now()) / (1000 * 60 * 60 * 24)));
+            const d = new Date(userStatus.premium_until * 1000).toLocaleDateString('tr-TR');
+            el.innerHTML = `
+                <div class="glass-card" style="text-align:center; border-color:var(--neon-blue);">
+                    <div style="font-size:48px; font-weight:800; color:var(--neon-blue);">${daysLeft}</div>
+                    <div class="muted small">gün kaldı</div>
+                    <div class="small" style="margin-top:8px;">Bitiş Tarihi: ${d}</div>
+                </div>
+            `;
+        } else {
+            el.innerHTML = `
+                <div class="plans">
+                    <div class="plan">
+                        <div class="plan-name">Günlük</div>
+                        <div class="plan-price">29 ₺<small>/gün</small></div>
+                        <button class="buy-btn primary-btn full" data-plan="daily">Satın Al</button>
+                    </div>
+                    <div class="plan">
+                        <div class="plan-name">Aylık</div>
+                        <div class="plan-price"><del style="font-size:16px; color:#94a3b8; margin-right:4px;">200 ₺</del>149 ₺<small>/ay</small></div>
+                        <button class="buy-btn primary-btn full" data-plan="monthly">Satın Al</button>
+                    </div>
+                    <div class="plan popular">
+                        <div class="ribbon">Popüler</div>
+                        <div class="plan-name">Yıllık</div>
+                        <div class="plan-price"><del style="font-size:16px; color:#94a3b8; margin-right:4px;">2400 ₺</del>1499 ₺<small>/yıl</small></div>
+                        <button class="buy-btn primary-btn full" data-plan="yearly">Satın Al</button>
+                    </div>
+                </div>
+            `;
+            el.querySelectorAll('.buy-btn').forEach((btn) => btn.addEventListener('click', async () => {
+                const originalText = btn.textContent; btn.textContent = 'İşleniyor...'; btn.disabled = true;
+                try {
+                    const res = await fetch('/api/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify({ plan: btn.dataset.plan }) });
+                    const data = await res.json().catch(() => ({}));
+                    if (res.ok) { showToast('Ödeme başarılı! 🎉'); applyStatus(data); await fetchStatus(); switchTab('panel'); }
+                    else showToast(data.error || 'Hata oluştu.');
+                } catch { showToast('Bağlantı hatası.'); } finally { btn.textContent = originalText; btn.disabled = false; }
+            }));
+        }
     }
-});
-$('acc-delete-btn').addEventListener('click', async () => {
-    if (confirm('Hesabınızı ve tüm verilerinizi kalıcı olarak silmek istediğinize emin misiniz?')) {
-        try {
-            await fetch('/api/delete-account', { method: 'DELETE', headers: authHeaders() });
-            authToken = null; localStorage.removeItem('yks_token');
-            $('account-manage-modal').classList.add('hidden');
-            fetchStatus(); showToast('Hesap silindi.');
-        } catch { showToast('Hesap silinemedi.'); }
-    }
+}
+
+document.querySelectorAll('.setting-item').forEach(item => {
+    item.addEventListener('click', () => {
+        const target = item.dataset.target;
+        openSubView(target);
+    });
 });
 
-$('setting-premium').addEventListener('click', () => {
-    const container = $('premium-plans-content');
-    if (userStatus.is_premium) {
-        const daysLeft = Math.max(0, Math.ceil((userStatus.premium_until * 1000 - Date.now()) / (1000 * 60 * 60 * 24)));
-        const d = new Date(userStatus.premium_until * 1000).toLocaleDateString('tr-TR');
-        $('premium-modal-desc').textContent = 'Premium üyeliğiniz aktif.';
-        container.innerHTML = `
-            <div class="glass-card" style="text-align:center; border-color:var(--neon-blue);">
-                <div style="font-size:48px; font-weight:800; color:var(--neon-blue);">${daysLeft}</div>
-                <div class="muted small">gün kaldı</div>
-                <div class="small" style="margin-top:8px;">Bitiş Tarihi: ${d}</div>
-            </div>
-        `;
-    } else {
-        $('premium-modal-desc').textContent = 'Limitleri kaldır, potansiyelini açığa çıkar.';
-        container.innerHTML = `
-            <div class="plans">
-                <div class="plan">
-                    <div class="plan-name">Günlük</div>
-                    <div class="plan-price">29 ₺<small>/gün</small></div>
-                    <button class="buy-btn primary-btn full" data-plan="daily">Satın Al</button>
-                </div>
-                <div class="plan">
-                    <div class="plan-name">Aylık</div>
-                    <div class="plan-price"><del style="font-size:16px; color:#94a3b8; margin-right:4px;">200 ₺</del>149 ₺<small>/ay</small></div>
-                    <button class="buy-btn primary-btn full" data-plan="monthly">Satın Al</button>
-                </div>
-                <div class="plan popular">
-                    <div class="ribbon">Popüler</div>
-                    <div class="plan-name">Yıllık</div>
-                    <div class="plan-price"><del style="font-size:16px; color:#94a3b8; margin-right:4px;">2400 ₺</del>1499 ₺<small>/yıl</small></div>
-                    <button class="buy-btn primary-btn full" data-plan="yearly">Satın Al</button>
-                </div>
-            </div>
-        `;
-        container.querySelectorAll('.buy-btn').forEach((btn) => btn.addEventListener('click', async () => {
-            const originalText = btn.textContent; btn.textContent = 'İşleniyor...'; btn.disabled = true;
-            try {
-                const res = await fetch('/api/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify({ plan: btn.dataset.plan }) });
-                const data = await res.json().catch(() => ({}));
-                if (res.ok) { showToast('Ödeme başarılı! 🎉'); applyStatus(data); await fetchStatus(); $('premium-plans-modal').classList.add('hidden'); switchTab('panel'); }
-                else showToast(data.error || 'Hata oluştu.');
-            } catch { showToast('Bağlantı hatası.'); } finally { btn.textContent = originalText; btn.disabled = false; }
-        }));
-    }
-    $('premium-plans-modal').classList.remove('hidden');
+document.querySelectorAll('.back-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const backTarget = btn.dataset.back;
+        switchTab(backTarget);
+    });
 });
-$('prem-close-btn').addEventListener('click', () => $('premium-plans-modal').classList.add('hidden'));
-
-$('setting-about').addEventListener('click', () => {
-    $('info-title').textContent = 'Yapımcı Hakkında';
-    $('info-content').innerHTML = 'Merhaba! Ben <strong>Emin Acar</strong>. Bu uygulamayı, öğrencilerin YKS hazırlık sürecinde zorlandıkları soruları hızlıca çözebilmeleri ve eksiklerini kapatabilmeleri için geliştirdim.<br><br>Sorumatik AIlesi olarak eğitimde teknolojinin gücünü kullanmaya devam edeceğiz. 🚀';
-    $('info-modal').classList.remove('hidden');
-});
-$('setting-family').addEventListener('click', () => {
-    $('info-title').textContent = 'Sorumatik AIlesi';
-    $('info-content').innerHTML = 'Sorumatik AIlesi, yapay zeka destekli eğitim araçları geliştiren bir topluluktur. Amacımız, her öğrencinin kaliteli eğitime erişimini kolaylaştırmak.<br><br>Bizi tercih ettiğin için teşekkürler! 💙';
-    $('info-modal').classList.remove('hidden');
-});
-$('info-close-btn').addEventListener('click', () => $('info-modal').classList.add('hidden'));
-
 
 // ---------- GERİ SAYIM ----------
 let countdownInterval = null;
@@ -283,8 +286,22 @@ function getProfile() { const mood = store.get('yks_mood', {}); return { name: u
 
 // ---------- SEKME GEÇİŞLERİ ----------
 function switchTab(tabId) {
-    document.querySelectorAll('.view').forEach((v) => v.classList.remove('active')); document.querySelectorAll('.nav-item').forEach((n) => n.classList.remove('active'));
-    $('view-' + tabId).classList.add('active'); const nav = document.querySelector(`.nav-item[data-tab="${tabId}"]`); if (nav) nav.classList.add('active');
+    document.querySelectorAll('.view').forEach((v) => v.classList.remove('active')); 
+    document.querySelectorAll('.nav-item').forEach((n) => n.classList.remove('active'));
+    
+    const targetView = $('view-' + tabId);
+    if(targetView) targetView.classList.add('active');
+    
+    // Ana menü sekmeleri için active class
+    const nav = document.querySelector(`.nav-item[data-tab="${tabId}"]`); 
+    if (nav) nav.classList.add('active');
+    
+    // Alt sayfalardaysa ana navigasyonu 'settings' olarak tut
+    const isSubPage = tabId.startsWith('setting-');
+    if (isSubPage) {
+        const settingsNav = document.querySelector('.nav-item[data-tab="settings"]');
+        if(settingsNav) settingsNav.classList.add('active');
+    }
     
     if (tabId === 'archive') { loadArchive(); }
     if (tabId === 'panel') { renderStats(); startCountdown(); }
@@ -343,7 +360,7 @@ function clearTransient() { chatHistory.querySelectorAll('.feedback-row,.quick-r
 
 async function sendMessage() {
     if (sending) return; const text = messageInput.value.trim(); if (!selectedFile && !text) return;
-    if (!userStatus.is_premium && userStatus.remaining <= 0) { showToast('Günlük soru hakkın doldu. Sınırsız çözüm için Premium\'a geç.'); switchTab('settings'); $('setting-premium').click(); return; }
+    if (!userStatus.is_premium && userStatus.remaining <= 0) { showToast('Günlük soru hakkın doldu. Sınırsız çözüm için Premium\'a geç.'); switchTab('settings'); openSubView('setting-premium'); return; }
     clearTransient(); if (selectedFile) await solveImage(text); else await askFollowup(text);
 }
 
@@ -354,7 +371,7 @@ async function solveImage(note) {
     formData.append('file', fileToSend, 'soru.jpg'); formData.append('subject', subject); formData.append('note', note);
     try {
         const response = await fetch('/solve', { method: 'POST', headers: authHeaders(), body: formData }); const data = await response.json().catch(() => ({})); typing.remove();
-        if (!response.ok || !data.answer) { const msg = [data.error, data.detail].find((m) => typeof m === 'string') || 'Çözüm hazırlanamadı.'; if (response.status === 403) { showToast('Hakkın doldu.'); switchTab('settings'); $('setting-premium').click(); } addMessage(chatHistory, { role: 'ai', body: escapeHtml(msg), cls: 'error' }); } 
+        if (!response.ok || !data.answer) { const msg = [data.error, data.detail].find((m) => typeof m === 'string') || 'Çözüm hazırlanamadı.'; if (response.status === 403) { showToast('Hakkın doldu.'); switchTab('settings'); openSubView('setting-premium'); } addMessage(chatHistory, { role: 'ai', body: escapeHtml(msg), cls: 'error' }); } 
         else { thread = { subject, note, solution: data.answer, history: [] }; addAiMarkdown(chatHistory, data.answer); addFeedbackRow(); applyStatus(data); }
     } catch { typing.remove(); addMessage(chatHistory, { role: 'ai', body: 'Bağlantı kurulamadı.', cls: 'error' }); } finally { setSending(false); scrollEnd(chatHistory); }
 }
@@ -364,7 +381,7 @@ async function askFollowup(text) {
     try {
         const data = await postJson('/followup', { subject: thread.subject, note: thread.note, solution: thread.solution, history: thread.history.slice(-10), message: text });
         typing.remove(); thread.history.push({ role: 'user', content: text }, { role: 'assistant', content: data.answer }); addAiMarkdown(chatHistory, data.answer); addFeedbackRow(); applyStatus(data);
-    } catch (err) { typing.remove(); if (err.status === 403) { showToast('Hakkın doldu.'); switchTab('settings'); $('setting-premium').click(); } addMessage(chatHistory, { role: 'ai', body: escapeHtml(err.message), cls: 'error' }); } finally { setSending(false); scrollEnd(chatHistory); }
+    } catch (err) { typing.remove(); if (err.status === 403) { showToast('Hakkın doldu.'); switchTab('settings'); openSubView('setting-premium'); } addMessage(chatHistory, { role: 'ai', body: escapeHtml(err.message), cls: 'error' }); } finally { setSending(false); scrollEnd(chatHistory); }
 }
 
 function addFeedbackRow() {
@@ -421,7 +438,7 @@ $('archive-filter').addEventListener('click', (e) => { const chip = e.target.clo
 function renderArchiveList() {
     const list = $('archive-list'); const items = archiveFilter === 'Hepsi' ? archiveData : archiveData.filter((q) => q.subject === archiveFilter);
     if (items.length === 0) { list.innerHTML = `<div class="glass-card muted" style="text-align:center">📭 Burada henüz soru yok.</div>`; return; }
-    list.innerHTML = items.map((item, i) => { const date = new Date(item.created_at).toLocaleDateString('tr-TR'); return `<div class="glass-card" style="margin-bottom:14px"><img class="arch-img" src="data:image/jpeg;base64,${item.image}" alt="Soru"><div class="arch-meta"><span class="arch-tag">${escapeHtml(item.subject)}</span><span class="small muted">${date}</span></div><button type="button" class="ghost-btn full archive-toggle" data-index="${i}">Çözümü göster</button><div class="archive-answer hidden" id="answer-${i}">${renderMarkdown(item.answer)}</div></div>`; }).join('');
+    list.innerHTML = items.map((item, i) => { const date = new Date(item.created_at).toLocaleDateString('tr-TR'); return `<div class="glass-card" style="margin-bottom:14px"><img class="arch-img" src="${item.image}" alt="Soru"><div class="arch-meta"><span class="arch-tag">${escapeHtml(item.subject)}</span><span class="small muted">${date}</span></div><button type="button" class="ghost-btn full archive-toggle" data-index="${i}">Çözümü göster</button><div class="archive-answer hidden" id="answer-${i}">${renderMarkdown(item.answer)}</div></div>`; }).join('');
     list.querySelectorAll('.archive-toggle').forEach((btn) => btn.addEventListener('click', () => { const answer = $('answer-' + btn.dataset.index); const opening = answer.classList.contains('hidden'); answer.classList.toggle('hidden', !opening); btn.textContent = opening ? 'Çözümü gizle' : 'Çözümü göster'; if (opening && !answer.dataset.rendered) { renderMath(answer); answer.dataset.rendered = '1'; } }));
 }
 async function loadArchive() { const list = $('archive-list'); list.innerHTML = '<div class="glass-card muted">Yükleniyor...</div>'; try { const response = await fetch('/history', { headers: authHeaders() }); if (!response.ok) throw new Error(); archiveData = await response.json(); archiveFilter = 'Hepsi'; renderArchiveFilter(); renderArchiveList(); } catch { list.innerHTML = '<div class="glass-card" style="color:var(--coral)">Arşiv yüklenemedi.</div>'; } }
@@ -432,16 +449,16 @@ const countInput = $('pdf-count'); function clampCount(v) { const n = parseInt(v
 $('count-minus').addEventListener('click', () => { countInput.value = clampCount(clampCount(countInput.value) - 1); }); $('count-plus').addEventListener('click', () => { countInput.value = clampCount(clampCount(countInput.value) + 1); }); countInput.addEventListener('change', () => { countInput.value = clampCount(countInput.value); });
 
 $('generate-pdf-btn').addEventListener('click', async () => {
-    if (!userStatus.is_premium) { $('premium-plans-modal').classList.remove('hidden'); $('setting-premium').click(); return; } // Premium modala yönlendir
+    if (!userStatus.is_premium) { switchTab('settings'); openSubView('setting-premium'); return; }
     const btn = $('generate-pdf-btn'); const resetBtn = () => { btn.textContent = 'PDF İndir 📥'; btn.disabled = false; }; const selectedSubjects = Array.from(document.querySelectorAll('#pdf-subjects input:checked')).map((cb) => cb.value); const count = clampCount(countInput.value);
     if (selectedSubjects.length === 0) { showToast('En az bir ders seçmelisin.'); return; }
     btn.textContent = 'Hazırlanıyor... ⏳'; btn.disabled = true; let pdfContainer;
     try {
-        const response = await fetch('/history?pdf=1', { headers: authHeaders() }); if (response.status === 403) { $('premium-plans-modal').classList.remove('hidden'); $('setting-premium').click(); return; } if (!response.ok) throw new Error('history');
+        const response = await fetch('/history?pdf=1', { headers: authHeaders() }); if (response.status === 403) { switchTab('settings'); openSubView('setting-premium'); return; } if (!response.ok) throw new Error('history');
         const all = await response.json(); let filtered = all.filter((q) => selectedSubjects.includes(q.subject)); if (filtered.length === 0) { showToast('Seçtiğin derslerde arşivde soru yok.'); return; } filtered = filtered.sort(() => 0.5 - Math.random()).slice(0, count);
         pdfContainer = document.createElement('div'); pdfContainer.style.cssText = 'width:794px;padding:40px;background:#fff;color:#000;font-family:Inter,Arial,sans-serif;position:fixed;top:0;left:0;z-index:9999;pointer-events:none;';
         let html = `<div style="text-align:center;margin-bottom:30px;border-bottom:2px solid #000;padding-bottom:10px"><h1 style="margin:0">YKS Sorumatik</h1><p>Kişiselleştirilmiş Deneme Testi</p></div><h3>SORULAR</h3>`;
-        filtered.forEach((q, i) => { html += `<div style="margin-bottom:30px;page-break-inside:avoid"><strong>Soru ${i + 1} (${escapeHtml(q.subject)})</strong><br><img src="data:image/jpeg;base64,${q.image}" style="max-width:100%;max-height:400px;display:block;margin:10px 0"></div>`; });
+        filtered.forEach((q, i) => { html += `<div style="margin-bottom:30px;page-break-inside:avoid"><strong>Soru ${i + 1} (${escapeHtml(q.subject)})</strong><br><img src="${q.image}" style="max-width:100%;max-height:400px;display:block;margin:10px 0"></div>`; });
         html += `<div style="page-break-before:always"><h3 style="border-top:2px solid #000;padding-top:20px">ÇÖZÜMLER</h3>`;
         filtered.forEach((q, i) => { html += `<div style="margin-bottom:30px;page-break-inside:avoid"><strong>Soru ${i + 1} Çözümü</strong><div style="font-size:14px;line-height:1.6">${renderMarkdown(q.answer)}</div></div>`; }); html += `</div>`;
         pdfContainer.innerHTML = html; document.body.appendChild(pdfContainer); renderMath(pdfContainer);
@@ -451,9 +468,7 @@ $('generate-pdf-btn').addEventListener('click', async () => {
     } catch (error) { console.error(error); showToast('PDF oluşturulurken bir hata oluştu.'); } finally { if (pdfContainer && pdfContainer.parentNode) pdfContainer.parentNode.removeChild(pdfContainer); resetBtn(); }
 });
 
-$('modal-close').addEventListener('click', () => $('premium-modal').classList.add('hidden')); // Eski modal kullanılmıyor ama hata vermesin
-$('modal-go-premium').addEventListener('click', () => { $('premium-modal').classList.add('hidden'); switchTab('settings'); $('setting-premium').click(); }); // Eski
-$('quota-chip').addEventListener('click', () => { switchTab('settings'); $('setting-premium').click(); });
+$('quota-chip').addEventListener('click', () => { switchTab('settings'); openSubView('setting-premium'); });
 
 // ---------- Başlangıç ----------
 fetchStatus().then(() => { renderStats(); startCountdown(); });

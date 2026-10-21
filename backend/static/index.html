@@ -135,8 +135,6 @@
           <button class="quick-btn" type="button" data-prompt="Etkili tekrar nasıl yapılır? Aralıklı tekrar ve aktif hatırlama yöntemini anlat."><span>🧠</span>Etkili tekrar</button>
           <button class="quick-btn" type="button" data-prompt="Yanlış yaptığım soruları nasıl analiz etmeliyim? Hata defteri yöntemi anlat."><span>📓</span>Hata defteri</button>
           <button class="quick-btn" type="button" data-prompt="Motivasyonum düştü, çalışmaya devam etmem için bana destek ol."><span>💪</span>Motivasyon ver</button>
-          <button class="quick-btn" type="button" data-prompt="Uyku, beslenme ve mola düzenimi YKS hazırlığına göre nasıl ayarlamalıyım?"><span>😴</span>Uyku & düzen</button>
-          <button class="quick-btn" type="button" data-prompt="Telefon ve sosyal medya dikkat dağınıklığını nasıl azaltırım?"><span>📵</span>Dikkat dağınıklığı</button>
         </div>
       </div>
 
@@ -165,14 +163,13 @@
       <div id="archive-list"></div>
     </section>
 
-    <!-- 5) AYARLAR (Yeni Liste Tasarımı) -->
+    <!-- 5) AYARLAR ANA MENÜ -->
     <section class="view" id="view-settings">
       <div class="settings-container">
         <h1 class="view-title">Ayarlar</h1>
         
         <div class="settings-list">
-          <!-- Hesap -->
-          <div class="setting-item" id="setting-account">
+          <div class="setting-item" data-target="setting-account">
             <div class="setting-icon">👤</div>
             <div class="setting-content">
               <div class="setting-title">Hesap</div>
@@ -181,8 +178,7 @@
             <div class="setting-arrow">›</div>
           </div>
 
-          <!-- Premium -->
-          <div class="setting-item" id="setting-premium">
+          <div class="setting-item" data-target="setting-premium">
             <div class="setting-icon">💎</div>
             <div class="setting-content">
               <div class="setting-title">Premium</div>
@@ -191,18 +187,16 @@
             <div class="setting-arrow">›</div>
           </div>
 
-          <!-- Öneri & Şikayet -->
-          <a href="https://wa.me/905555555555" target="_blank" class="setting-item" style="text-decoration:none; color:inherit;">
+          <div class="setting-item" data-target="setting-suggestion">
             <div class="setting-icon">💡</div>
             <div class="setting-content">
               <div class="setting-title">Öneri & Şikayet</div>
               <div class="setting-desc">WhatsApp ile iletişime geç</div>
             </div>
             <div class="setting-arrow">›</div>
-          </a>
+          </div>
 
-          <!-- Yapımcı Hakkında -->
-          <div class="setting-item" id="setting-about">
+          <div class="setting-item" data-target="setting-about">
             <div class="setting-icon">👨‍💻</div>
             <div class="setting-content">
               <div class="setting-title">Yapımcı Hakkında</div>
@@ -211,8 +205,7 @@
             <div class="setting-arrow">›</div>
           </div>
 
-          <!-- Sorumatik AIlesi -->
-          <div class="setting-item" id="setting-family">
+          <div class="setting-item" data-target="setting-family">
             <div class="setting-icon">🚀</div>
             <div class="setting-content">
               <div class="setting-title">Sorumatik AIlesi</div>
@@ -221,16 +214,92 @@
             <div class="setting-arrow">›</div>
           </div>
         </div>
+      </div>
+    </section>
 
-        <!-- Alt Bilgi (Footer) -->
-        <div class="footer-credit">
-          <div class="credit-line"></div>
-          <p>Designed & Developed by <strong>Emin Acar</strong></p>
-          <p class="company-name">Sorumatik</p>
+    <!-- 5.1) HESAP AYARLARI SAYFASI -->
+    <section class="view" id="view-setting-account">
+      <div class="subpage-header">
+        <button class="back-btn" data-back="settings">←</button>
+        <h2>Hesap</h2>
+      </div>
+      <div id="account-page-content" class="glass-card">
+        <!-- JS ile doldurulacak -->
+      </div>
+    </section>
+
+    <!-- 5.2) PREMIUM SAYFASI -->
+    <section class="view" id="view-setting-premium">
+      <div class="subpage-header">
+        <button class="back-btn" data-back="settings">←</button>
+        <h2>Premium</h2>
+      </div>
+      <div id="premium-page-content">
+        <!-- JS ile doldurulacak -->
+      </div>
+    </section>
+
+    <!-- 5.3) ÖNERİ & ŞİKAYET SAYFASI -->
+    <section class="view" id="view-setting-suggestion">
+      <div class="subpage-header">
+        <button class="back-btn" data-back="settings">←</button>
+        <h2>Öneri & Şikayet</h2>
+      </div>
+      <div class="glass-card" style="text-align: center; padding: 30px;">
+        <div style="font-size: 48px; margin-bottom: 16px;">💬</div>
+        <h3>Görüşlerin Bizim İçin Değerli</h3>
+        <p class="muted small" style="margin: 12px 0 24px;">Uygulamayı geliştirmemize yardımcı olmak için öneri ve şikayetlerini bize iletebilirsin.</p>
+        <a href="https://wa.me/905051016965" target="_blank" class="primary-btn full" style="display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; background: #25D366; color: white;">
+          <span>WhatsApp ile İletişime Geç</span>
+        </a>
+      </div>
+    </section>
+
+    <!-- 5.4) YAPIMCI HAKKINDA SAYFASI -->
+    <section class="view" id="view-setting-about">
+      <div class="subpage-header">
+        <button class="back-btn" data-back="settings">←</button>
+        <h2>Yapımcı Hakkında</h2>
+      </div>
+      <div class="glass-card">
+        <h3 style="margin-bottom: 12px;">Emin Acar</h3>
+        <p class="muted" style="font-size: 14px; line-height: 1.6; margin-bottom: 24px;">
+          Çok yönlü ilgi alanları ve bitmek bilmeyen üretme arzusu ile dikkat çeken Emin Acar, İstanbul Gelişim Üniversitesi'nde İngilizce Elektrik-Elektronik Mühendisliği eğitimine devam eden genç bir mühendis adayıdır. Vizyonunu sadece kendi alanıyla sınırlı tutmuyor; farklı bilim dallarını bir araya getirerek gerçek anlamda multidisipliner bir mühendislik profili inşa etmeye çalışıyor. Teknoloji ve yapay zekayı eğitimle harmanlayarak geleceğe değer katmayı hedefliyor.
+        </p>
+        
+        <h4 style="margin-bottom: 12px; border-top: 1px solid var(--glass-border); padding-top: 16px;">İletişim</h4>
+        <div style="display: flex; gap: 10px;">
+            <a href="https://wa.me/905051016965" target="_blank" class="ghost-btn" style="flex:1; display:flex; justify-content:center; align-items:center; gap:8px; text-decoration:none; color:#25D366; border-color:#25D366;">
+              <span>WhatsApp</span>
+            </a>
+            <a href="https://instagram.com/em1nacar" target="_blank" class="ghost-btn" style="flex:1; display:flex; justify-content:center; align-items:center; gap:8px; text-decoration:none; color:#E1306C; border-color:#E1306C;">
+              <span>Instagram</span>
+            </a>
         </div>
       </div>
     </section>
+
+    <!-- 5.5) SORUMATIK AİLESİ SAYFASI -->
+    <section class="view" id="view-setting-family">
+      <div class="subpage-header">
+        <button class="back-btn" data-back="settings">←</button>
+        <h2>Sorumatik AIlesi</h2>
+      </div>
+      <div class="glass-card">
+        <div style="font-size: 48px; text-align: center; margin-bottom: 16px;">🚀</div>
+        <p class="muted" style="font-size: 14px; line-height: 1.6; text-align: center;">
+          Sorumatik AIlesi, yapay zeka destekli eğitim araçları geliştiren bir topluluktur. Amacımız, her öğrencinin kaliteli eğitime erişimini kolaylaştırmak.<br><br>Bizi tercih ettiğin için teşekkürler! 💙
+        </p>
+      </div>
+    </section>
   </main>
+
+  <!-- Footer (Navigasyonun hemen üstü) -->
+  <footer class="footer-credit">
+    <div class="credit-line"></div>
+    <p>Designed & Developed by <strong>Emin Acar</strong></p>
+    <p class="company-name">Sorumatik</p>
+  </footer>
 
   <nav class="bottom-nav">
     <button class="nav-item active" data-tab="panel" type="button"><span>📊</span>Panelim</button>
@@ -241,53 +310,24 @@
   </nav>
 </div>
 
-<!-- Hesap Yönetimi Modal -->
-<div id="account-manage-modal" class="modal hidden">
-  <div class="modal-box">
-    <h3>Hesap Yönetimi</h3>
-    <p class="small" style="margin-top:10px;"><strong>E-posta:</strong> <span id="acc-modal-email"></span></p>
-    <div style="display:flex; flex-direction:column; gap:8px; margin-top:20px;">
-      <button id="acc-logout-btn" class="ghost-btn full">Çıkış Yap</button>
-      <button id="acc-delete-btn" class="ghost-btn full" style="border-color:var(--coral); color:var(--coral);">Hesabı Sil</button>
-      <button id="acc-close-btn" class="primary-btn full">Kapat</button>
-    </div>
+<!-- Tam ekran saat -->
+<div id="pomo-full" class="pomo-full hidden">
+  <div class="pomo-full-label">Odaklan 🎯</div>
+  <div class="pomo-full-time" id="pomo-full-time">25:00</div>
+  <div class="btn-row">
+    <button id="pomo-full-toggle" class="primary-btn" type="button">Duraklat</button>
+    <button id="pomo-full-close" class="ghost-btn" type="button">Küçült</button>
   </div>
 </div>
 
-<!-- Premium Plans Modal -->
-<div id="premium-plans-modal" class="modal hidden">
-  <div class="modal-box" style="max-width: 450px; text-align:left;">
-    <h3 style="text-align:center;">Sınırsız Erişim 💎</h3>
-    <p class="muted small" style="text-align:center; margin-bottom:15px;" id="premium-modal-desc">Limitleri kaldır, potansiyelini açığa çıkar.</p>
-    
-    <div id="premium-plans-content">
-       <!-- JS ile doldurulacak -->
-    </div>
-    
-    <button id="prem-close-btn" class="ghost-btn full" style="margin-top:15px;">Kapat</button>
-  </div>
-</div>
-
-<!-- Bilgi Modalı (Yapımcı, Aile vb.) -->
-<div id="info-modal" class="modal hidden">
-  <div class="modal-box">
-    <h3 id="info-title"></h3>
-    <p id="info-content" class="small muted" style="margin:15px 0; line-height:1.5;"></p>
-    <button id="info-close-btn" class="primary-btn full">Tamam</button>
-  </div>
-</div>
-
-<!-- Auth Modal -->
+<!-- Auth modal -->
 <div id="auth-modal" class="modal hidden">
   <div class="modal-box" style="max-width: 400px;">
     <h3 id="auth-title">Giriş Yap</h3>
     
+    <!-- SIRALAMA: ADIN -> E-POSTA -> ŞİFRE -> ŞİFRE TEKRAR -> KOD -->
     <div id="auth-register-fields" class="hidden">
       <input id="auth-name" class="text-input" type="text" placeholder="Adın">
-      <div style="display:flex; gap:8px; align-items:center; margin-top:8px;">
-        <input id="auth-code" class="text-input" type="text" placeholder="Doğrulama Kodu" style="flex:1; margin-top:0;">
-        <button id="btn-send-code" class="ghost-btn" type="button" style="padding:11px 12px; font-size:12px;">Kod Al</button>
-      </div>
     </div>
 
     <input id="auth-email" class="text-input" type="email" placeholder="E-posta">
@@ -295,6 +335,11 @@
     
     <div id="auth-password-confirm-wrap" class="hidden">
       <input id="auth-password-confirm" class="text-input" type="password" placeholder="Şifreyi Tekrar Gir">
+    </div>
+
+    <div id="auth-code-wrap" class="hidden" style="display:flex; gap:8px; align-items:center; margin-top:8px;">
+      <input id="auth-code" class="text-input" type="text" placeholder="Doğrulama Kodu" style="flex:1; margin-top:0;">
+      <button id="btn-send-code" class="ghost-btn" type="button" style="padding:11px 12px; font-size:12px;">Kod Al</button>
     </div>
 
     <button id="auth-submit" class="primary-btn full">Giriş Yap</button>

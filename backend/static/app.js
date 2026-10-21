@@ -15,6 +15,11 @@ const store = {
     set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { } },
 };
 
+// TYT Tarihini otomatik ayarla (Kullanıcı girmeyecek)
+if (!store.get('yks_exam')) {
+    store.set('yks_exam', '2027-06-19'); // 2027 TYT Varsayılan Tarihi
+}
+
 let authToken = localStorage.getItem('yks_token') || null;
 function authHeaders() { return authToken ? { 'Authorization': `Bearer ${authToken}` } : {}; }
 
@@ -207,7 +212,7 @@ function openSubView(targetId) {
         } else {
             el.innerHTML = `
                 <div class="plans">
-                    <div class="plan"><div class="plan-name">Günlük</div><div class="plan-price">29 ₺<small>/gün</small></div><button class="buy-btn primary-btn full" data-plan="daily">Satın Al</button></div>
+                    <div class="plan"><div class="plan-name">Haftalık</div><div class="plan-price">49 ₺<small>/hafta</small></div><button class="buy-btn primary-btn full" data-plan="weekly">Satın Al</button></div>
                     <div class="plan"><div class="plan-name">Aylık</div><div class="plan-price"><del style="font-size:16px; color:#94a3b8; margin-right:4px;">200 ₺</del>149 ₺<small>/ay</small></div><button class="buy-btn primary-btn full" data-plan="monthly">Satın Al</button></div>
                     <div class="plan popular"><div class="ribbon">Popüler</div><div class="plan-name">Yıllık</div><div class="plan-price"><del style="font-size:16px; color:#94a3b8; margin-right:4px;">2400 ₺</del>1499 ₺<small>/yıl</small></div><button class="buy-btn primary-btn full" data-plan="yearly">Satın Al</button></div>
                 </div>`;
@@ -234,33 +239,35 @@ function updateCountdown() {
 }
 function startCountdown() { if (countdownInterval) clearInterval(countdownInterval); updateCountdown(); countdownInterval = setInterval(updateCountdown, 1000); }
 
-// ---------- MESAJ BALONLARI & SESLİ OKUMA ----------
+// ---------- MESAJ BALONLARI & 3 NOKTA YERİNE HAK ----------
 function messageHtml({ role, body, cls = '', avatar = ABI_AVATAR }) { 
     if (role === 'user') return `<div class="message user ${cls}"><div class="msg-bubble">${body}</div></div>`; 
-    return `<div class="message ai ${cls}">${avatar}<div class="msg-bubble">${body}<button class="read-aloud-btn" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px; margin-top:4px; padding:4px;" title="Sesli Oku" onclick="speakText(this)">🔊</button></div></div>`; 
+    return `<div class="message ai ${cls}">${avatar}<div class="msg-bubble">${body}</div></div>`; 
 }
 
 function addMessage(container, opts) { 
     container.insertAdjacentHTML('beforeend', messageHtml(opts)); 
     const el = container.lastElementChild; scrollEnd(container); return el; 
 }
-function addTyping(container, avatar) { return addMessage(container, { role: 'ai', avatar, body: '<div class="typing-indicator"><span></span><span></span><span></span></div>' }); }
+
+function addTyping(container, avatar) { 
+    const text = `Mentor düşünüyor... (Kalan Hakkınız: ${userStatus.is_premium ? 'Sınırsız' : userStatus.remaining})`;
+    return addMessage(container, { role: 'ai', avatar, body: `<div class="typing-text">${text}</div>` }); 
+}
+
 function addAiMarkdown(container, text, avatar) { 
     const el = addMessage(container, { role: 'ai', avatar, body: '' }); 
     const bubble = el.querySelector('.msg-bubble'); 
-    // Sesli okuma butonunu metnin en altına ekle
     bubble.innerHTML = renderMarkdown(text) + `<button class="read-aloud-btn" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px; margin-top:4px; padding:4px;" title="Sesli Oku" onclick="speakText(this)">🔊</button>`; 
     renderMath(bubble); scrollEnd(container); return el; 
 }
 
-// Global Sesli Okuma Fonksiyonu
 window.speakText = function(btn) {
     const text = btn.parentElement.innerText.replace('🔊', '').trim();
     if (!text) return;
-    window.speechSynthesis.cancel(); // Önceki konuşmayı durdur
+    window.speechSynthesis.cancel(); 
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'tr-TR';
-    utterance.rate = 1.0;
+    utterance.lang = 'tr-TR'; utterance.rate = 1.0;
     window.speechSynthesis.speak(utterance);
 };
 
@@ -305,13 +312,11 @@ function renderStats() {
     if (circle) { const c = 2 * Math.PI * 40; circle.style.strokeDasharray = `${c}`; circle.style.strokeDashoffset = c - (percent / 100) * c; }
     setText('goal-percent', `${percent}%`); setText('stat-streak', getStreak()); setText('stat-goal', `${Math.min(done, 99)}/${goal}`);
     setText('stat-total', store.get('yks_total', 0)); setText('stat-focus', focusCounter.get()); setText('pomo-count', `Bugün ${pomoCounter.get()} tur`);
-    const exam = $('exam-date'); if (exam && document.activeElement !== exam) exam.value = store.get('yks_exam', '');
     const mood = store.get('yks_mood', {}); document.querySelectorAll('.mood-btn').forEach((b) => b.classList.toggle('active', mood.date === todayKey() && mood.key === b.dataset.mood));
     updateCountdown();
 }
 $('goal-minus').addEventListener('click', () => { store.set('yks_goal', Math.max(1, getGoal() - 1)); renderStats(); });
 $('goal-plus').addEventListener('click', () => { store.set('yks_goal', Math.min(50, getGoal() + 1)); renderStats(); });
-$('exam-date').addEventListener('change', (e) => { store.set('yks_exam', e.target.value); renderStats(); });
 
 const MOOD_FALLBACK = { 'yorgun': 'Yorgun hissetmen normal. Hedefi küçült: 2-3 soru çöz, sonra dinlen.', 'kaygılı': 'Kaygı, önemsediğin için var. Derin bir nefes al, sadece bugüne odaklan.', 'iyi': 'Güzel! Bu enerjiyle en zorlandığın konudan bir soru çöz.', 'çok motive': 'Enerjin süper! 🚀 Hemen bir odak turu başlat.' };
 $('mood-row').addEventListener('click', async (e) => {

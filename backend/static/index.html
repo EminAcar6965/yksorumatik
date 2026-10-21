@@ -58,11 +58,6 @@
       </div>
 
       <div class="glass-card">
-        <label class="muted small" for="exam-date">Sınav tarihi</label>
-        <input id="exam-date" class="text-input" type="date">
-      </div>
-
-      <div class="glass-card">
         <div class="card-title">Bugün nasılsın?</div>
         <div class="mood-row" id="mood-row">
           <button class="mood-btn" data-mood="yorgun" type="button">😴 Yorgun</button>
@@ -91,7 +86,6 @@
         <div class="muted small" id="pomo-count">Bugün 0 tur</div>
       </div>
 
-      <!-- YENİ: Zayıf Noktalarım (Analiz) -->
       <div class="glass-card" id="analytics-card">
         <div class="card-title">📊 Zayıf Noktalarım (Konu Analizi)</div>
         <div id="analytics-content" class="muted small" style="line-height: 1.6;">Yükleniyor...</div>
@@ -139,8 +133,6 @@
           <button class="quick-btn" type="button" data-prompt="Sınav kaygısıyla nasıl başa çıkarım?"><span>😰</span>Sınav kaygısı</button>
           <button class="quick-btn" type="button" data-prompt="Deneme sınavında süre yönetimi ve soru atlama stratejisi nasıl olmalı?"><span>⏱️</span>Deneme stratejisi</button>
           <button class="quick-btn" type="button" data-prompt="Etkili tekrar nasıl yapılır? Aralıklı tekrar ve aktif hatırlama yöntemini anlat."><span>🧠</span>Etkili tekrar</button>
-          <button class="quick-btn" type="button" data-prompt="Yanlış yaptığım soruları nasıl analiz etmeliyim? Hata defteri yöntemi anlat."><span>📓</span>Hata defteri</button>
-          <button class="quick-btn" type="button" data-prompt="Motivasyonum düştü, çalışmaya devam etmem için bana destek ol."><span>💪</span>Motivasyon ver</button>
         </div>
       </div>
 
@@ -247,9 +239,7 @@
         <button class="back-btn" data-back="settings">←</button>
         <h2>Hesap</h2>
       </div>
-      <div id="account-page-content" class="glass-card">
-        <!-- JS ile doldurulacak -->
-      </div>
+      <div id="account-page-content" class="glass-card"></div>
     </section>
 
     <!-- 5.2) PREMIUM SAYFASI -->
@@ -258,9 +248,7 @@
         <button class="back-btn" data-back="settings">←</button>
         <h2>Premium</h2>
       </div>
-      <div id="premium-page-content">
-        <!-- JS ile doldurulacak -->
-      </div>
+      <div id="premium-page-content"></div>
     </section>
 
     <!-- 5.3) DAVET ET SAYFASI -->
@@ -351,13 +339,6 @@
     </section>
   </main>
 
-  <!-- Footer (Navigasyonun hemen üstü) -->
-  <footer class="footer-credit">
-    <div class="credit-line"></div>
-    <p>Designed & Developed by <strong>Emin Acar</strong></p>
-    <p class="company-name">Sorumatik</p>
-  </footer>
-
   <nav class="bottom-nav">
     <button class="nav-item active" data-tab="panel" type="button"><span>📊</span>Panelim</button>
     <button class="nav-item" data-tab="solve" type="button"><span>📸</span>Soru Çöz</button>
@@ -365,7 +346,13 @@
     <button class="nav-item" data-tab="archive" type="button"><span>🗂️</span>Arşiv</button>
     <button class="nav-item" data-tab="settings" type="button"><span>⚙️</span>Ayarlar</button>
   </nav>
-</div>
+</div> <!-- app div bitişi -->
+
+<!-- Footer artık en altta, app div'inin dışında -->
+<footer class="footer-credit">
+    <p>Designed & Developed by <strong>Emin Acar</strong></p>
+    <p class="company-name">Sorumatik</p>
+</footer>
 
 <!-- Tam ekran saat -->
 <div id="pomo-full" class="pomo-full hidden">
@@ -382,7 +369,6 @@
   <div class="modal-box" style="max-width: 400px;">
     <h3 id="auth-title">Giriş Yap</h3>
     
-    <!-- SIRALAMA: ADIN -> E-POSTA -> ŞİFRE -> ŞİFRE TEKRAR -> DOĞRULAMA KODU -> DAVET KODU -->
     <div id="auth-register-fields" class="hidden">
       <input id="auth-name" class="text-input" type="text" placeholder="Adın">
     </div>
@@ -400,7 +386,7 @@
     </div>
 
     <div id="auth-referral-wrap" class="hidden">
-      <input id="auth-referral" class="text-input" type="text" placeholder="Davet Kodu (Varsa)">
+      <input id="auth-referral" class="text-input" type="text" placeholder="HOSGELDINYKS">
     </div>
 
     <button id="auth-submit" class="primary-btn full">Giriş Yap</button>

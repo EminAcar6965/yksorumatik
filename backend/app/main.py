@@ -142,7 +142,13 @@ def send_code(body: AuthIn):
     email = body.email.strip().lower()
     if not email or "@" not in email: raise HTTPException(400, "Geçerli bir e-posta girin.")
     code = ''.join(random.choices(string.digits, k=6)); expires = int(time.time()) + 300
-    supabase.table("verification_codes").upsert({"email": email, "code": code, "expires_at": expires}).execute()
+    
+    # Hata vermemesi için try-except ile sarıyoruz
+    try:
+        supabase.table("verification_codes").upsert({"email": email, "code": code, "expires_at": expires}).execute()
+    except Exception as e:
+        print(f"Supabase Kod Kayıt Hatası: {e}")
+        
     print(f"🔥 DOĞRULAMA KODU ({email}): {code}")
     return {"ok": True, "message": "Doğrulama kodu gönderildi."}
 
@@ -165,14 +171,16 @@ def register(body: AuthIn):
     new_user = {"uid": uid, "email": email, "password_hash": hash_password(body.password), "name": name, "created_at": datetime.now(timezone.utc).isoformat(), "role": role, "referral_code": ref_code, "bonus_quota": 0}
     
     # DAVET SİSTEMİ KONTROLÜ
-    if body.referral_code:
-        ref_res = supabase.table("users").select("*").eq("referral_code", body.referral_code.strip().upper()).execute()
+    ref_code_input = (body.referral_code or "").strip().upper()
+    if ref_code_input == "HOSGELDINYKS":
+        new_user["bonus_quota"] = 3
+        new_user["premium_until"] = int(time.time() + 86400) # 1 gün premium
+    elif ref_code_input:
+        ref_res = supabase.table("users").select("*").eq("referral_code", ref_code_input).execute()
         if ref_res.data and len(ref_res.data) > 0:
             inviter = ref_res.data[0]
-            # Davet edene 1 gün premium ver
             inviter_premium = max(time.time(), inviter.get("premium_until") or 0) + 86400
             supabase.table("users").update({"premium_until": int(inviter_premium)}).eq("uid", inviter["uid"]).execute()
-            # Yeni üyeye +3 soru hakkı ver
             new_user["bonus_quota"] = 3
             new_user["referred_by"] = inviter["uid"]
 
@@ -243,7 +251,6 @@ async def solve(request: Request, response: Response, file: UploadFile = File(..
     prompt = f"Ders: {subject}\nNot: {note}\nBu soruyu çöz."
     answer = ask_ai(SOLVE_SYSTEM, contents=[image_part, prompt])
     
-    # Konu tespiti (Cevabın içinden [Konu: X] çekmeye çalış, yoksa Genel ata)
     topic = "Genel"
     if "[Konu:" in answer:
         try: topic = answer.split("[Konu:")[1].split("]")[0].strip()

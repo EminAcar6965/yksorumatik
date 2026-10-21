@@ -90,6 +90,12 @@
         </div>
         <div class="muted small" id="pomo-count">Bugün 0 tur</div>
       </div>
+
+      <!-- YENİ: Zayıf Noktalarım (Analiz) -->
+      <div class="glass-card" id="analytics-card">
+        <div class="card-title">📊 Zayıf Noktalarım (Konu Analizi)</div>
+        <div id="analytics-content" class="muted small" style="line-height: 1.6;">Yükleniyor...</div>
+      </div>
     </section>
 
     <!-- 2) SORU ÇÖZ -->
@@ -187,6 +193,15 @@
             <div class="setting-arrow">›</div>
           </div>
 
+          <div class="setting-item" data-target="setting-invite">
+            <div class="setting-icon">🎁</div>
+            <div class="setting-content">
+              <div class="setting-title">Arkadaşını Davet Et</div>
+              <div class="setting-desc">1 Gün Premium Kazan</div>
+            </div>
+            <div class="setting-arrow">›</div>
+          </div>
+
           <div class="setting-item" data-target="setting-suggestion">
             <div class="setting-icon">💡</div>
             <div class="setting-content">
@@ -210,6 +225,15 @@
             <div class="setting-content">
               <div class="setting-title">Sorumatik AIlesi</div>
               <div class="setting-desc">Topluluğumuza katıl</div>
+            </div>
+            <div class="setting-arrow">›</div>
+          </div>
+
+          <div class="setting-item" data-target="setting-legal">
+            <div class="setting-icon">⚖️</div>
+            <div class="setting-content">
+              <div class="setting-title">Yasal Bilgiler</div>
+              <div class="setting-desc">Gizlilik, Kullanım Şartları</div>
             </div>
             <div class="setting-arrow">›</div>
           </div>
@@ -239,7 +263,22 @@
       </div>
     </section>
 
-    <!-- 5.3) ÖNERİ & ŞİKAYET SAYFASI -->
+    <!-- 5.3) DAVET ET SAYFASI -->
+    <section class="view" id="view-setting-invite">
+      <div class="subpage-header">
+        <button class="back-btn" data-back="settings">←</button>
+        <h2>Arkadaşını Davet Et</h2>
+      </div>
+      <div class="glass-card" style="text-align: center;">
+        <div style="font-size: 48px; margin-bottom: 16px;">🎁</div>
+        <p class="muted small" style="margin-bottom: 16px;">Arkadaşın bu kodu kullanarak kayıt olursa <strong>sen 1 Günlük Premium</strong>, o ise <strong>+3 Soru Hakkı</strong> kazanır!</p>
+        <div style="background: rgba(255,255,255,0.1); border: 2px dashed var(--neon-blue); padding: 16px; border-radius: 12px; font-size: 24px; font-weight: 800; letter-spacing: 2px; margin-bottom: 16px; cursor: pointer;" id="my-referral-code" onclick="navigator.clipboard.writeText(this.innerText); showToast('Kopyalandı!')">
+          KOD
+        </div>
+      </div>
+    </section>
+
+    <!-- 5.4) ÖNERİ & ŞİKAYET SAYFASI -->
     <section class="view" id="view-setting-suggestion">
       <div class="subpage-header">
         <button class="back-btn" data-back="settings">←</button>
@@ -255,7 +294,7 @@
       </div>
     </section>
 
-    <!-- 5.4) YAPIMCI HAKKINDA SAYFASI -->
+    <!-- 5.5) YAPIMCI HAKKINDA SAYFASI -->
     <section class="view" id="view-setting-about">
       <div class="subpage-header">
         <button class="back-btn" data-back="settings">←</button>
@@ -279,7 +318,7 @@
       </div>
     </section>
 
-    <!-- 5.5) SORUMATIK AİLESİ SAYFASI -->
+    <!-- 5.6) SORUMATIK AİLESİ SAYFASI -->
     <section class="view" id="view-setting-family">
       <div class="subpage-header">
         <button class="back-btn" data-back="settings">←</button>
@@ -290,6 +329,24 @@
         <p class="muted" style="font-size: 14px; line-height: 1.6; text-align: center;">
           Sorumatik AIlesi, yapay zeka destekli eğitim araçları geliştiren bir topluluktur. Amacımız, her öğrencinin kaliteli eğitime erişimini kolaylaştırmak.<br><br>Bizi tercih ettiğin için teşekkürler! 💙
         </p>
+      </div>
+    </section>
+
+    <!-- 5.7) YASAL BİLGİLER SAYFASI -->
+    <section class="view" id="view-setting-legal">
+      <div class="subpage-header">
+        <button class="back-btn" data-back="settings">←</button>
+        <h2>Yasal Bilgiler</h2>
+      </div>
+      <div class="glass-card" style="font-size: 13px; line-height: 1.6; color: var(--text-muted);">
+        <h3 style="color:var(--text-main); margin-bottom:8px;">Gizlilik Politikası</h3>
+        <p>Kişisel verileriniz (e-posta, fotoğraflar) sadece size hizmet vermek amacıyla güvenli sunucularda (Supabase ve Cloudflare R2) saklanır. Üçüncü şahıslarla paylaşılmaz.</p>
+        
+        <h3 style="color:var(--text-main); margin:16px 0 8px;">Kullanım Koşulları</h3>
+        <p>Sorumatik AI, eğitim amaçlı bir yapay zeka asistanıdır. Verdiği cevaplar bilgilendirme amaçlıdır, resmi bir öğretmen yerine geçmez. Sitede hukuka aykırı içerik paylaşılması yasaktır.</p>
+        
+        <h3 style="color:var(--text-main); margin:16px 0 8px;">Mesafeli Satış Sözleşmesi</h3>
+        <p>Premium üyelikler dijital hizmet olup, satın alım sonrası 14 gün içinde iade talep edilebilir. Abonelik iptalleri bir sonraki dönem için geçerlidir.</p>
       </div>
     </section>
   </main>
@@ -325,7 +382,7 @@
   <div class="modal-box" style="max-width: 400px;">
     <h3 id="auth-title">Giriş Yap</h3>
     
-    <!-- SIRALAMA: ADIN -> E-POSTA -> ŞİFRE -> ŞİFRE TEKRAR -> KOD -->
+    <!-- SIRALAMA: ADIN -> E-POSTA -> ŞİFRE -> ŞİFRE TEKRAR -> DOĞRULAMA KODU -> DAVET KODU -->
     <div id="auth-register-fields" class="hidden">
       <input id="auth-name" class="text-input" type="text" placeholder="Adın">
     </div>
@@ -340,6 +397,10 @@
     <div id="auth-code-wrap" class="hidden" style="display:flex; gap:8px; align-items:center; margin-top:8px;">
       <input id="auth-code" class="text-input" type="text" placeholder="Doğrulama Kodu" style="flex:1; margin-top:0;">
       <button id="btn-send-code" class="ghost-btn" type="button" style="padding:11px 12px; font-size:12px;">Kod Al</button>
+    </div>
+
+    <div id="auth-referral-wrap" class="hidden">
+      <input id="auth-referral" class="text-input" type="text" placeholder="Davet Kodu (Varsa)">
     </div>
 
     <button id="auth-submit" class="primary-btn full">Giriş Yap</button>

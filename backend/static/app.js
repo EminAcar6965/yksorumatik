@@ -69,17 +69,11 @@ function compressImage(file, maxSide = 1600, quality = 0.85) {
 }
 
 // ---------- KULLANICI DURUMU ----------
-let userStatus = { is_premium: false, remaining: 3, email: '', name: '', role: 'user' };
+let userStatus = { is_premium: false, remaining: 3, email: '', name: '', role: 'user', referral_code: '' };
 
 function applyStatus(data) {
     if (!data) return;
-    if (typeof data.is_premium === 'boolean') userStatus.is_premium = data.is_premium;
-    if (typeof data.remaining === 'number') userStatus.remaining = data.remaining;
-    if ('plan' in data) userStatus.plan = data.plan;
-    if ('premium_until' in data) userStatus.premium_until = data.premium_until;
-    if ('email' in data) userStatus.email = data.email;
-    if ('name' in data) userStatus.name = data.name;
-    if ('role' in data) userStatus.role = data.role;
+    Object.assign(userStatus, data);
     updateUI();
 }
 
@@ -99,33 +93,45 @@ function updateUI() {
     const part = h < 6 ? 'İyi geceler' : h < 12 ? 'Günaydın' : h < 18 ? 'İyi günler' : 'İyi akşamlar';
     $('greeting-text').textContent = userStatus.name ? `${part}, ${userStatus.name}! 👋` : `${part}! 👋`;
 
-    // Ayarlar sekmelerini güncelle
     if ($('account-desc')) {
-        if (userStatus.email) {
-            $('account-desc').textContent = userStatus.email;
-            $('account-desc').style.color = 'var(--accent)';
-        } else {
-            $('account-desc').textContent = 'Giriş yap veya kayıt ol';
-            $('account-desc').style.color = 'var(--text-muted)';
-        }
+        $('account-desc').textContent = userStatus.email ? userStatus.email : 'Giriş yap veya kayıt ol';
+        $('account-desc').style.color = userStatus.email ? 'var(--accent)' : 'var(--text-muted)';
     }
     
     if ($('premium-desc')) {
-        if (userStatus.is_premium) {
-            $('premium-desc').textContent = 'Premium Aktif 💎';
-            $('premium-desc').style.color = 'var(--neon-blue)';
-        } else {
-            $('premium-desc').textContent = 'Sınırsız soru çözümü';
-            $('premium-desc').style.color = 'var(--text-muted)';
-        }
+        $('premium-desc').textContent = userStatus.is_premium ? 'Premium Aktif 💎' : 'Sınırsız soru çözümü';
+        $('premium-desc').style.color = userStatus.is_premium ? 'var(--neon-blue)' : 'var(--text-muted)';
     }
+
+    if ($('my-referral-code')) $('my-referral-code').textContent = userStatus.referral_code || '-------';
+    
+    if(userStatus.email) loadAnalytics();
+}
+
+// ---------- ANALİZ ----------
+async function loadAnalytics() {
+    if (!$('analytics-content')) return;
+    try {
+        const res = await fetch('/api/analytics', { headers: authHeaders() });
+        const data = await res.json();
+        if (data.total === 0) { $('analytics-content').innerHTML = "Henüz analiz edilecek soru yok. Bir soru çözerek başla!"; return; }
+        
+        let html = `<div style="margin-bottom:8px;">Toplam Çözülen: <strong>${data.total}</strong></div>`;
+        
+        const sortedSub = Object.entries(data.subjects).sort((a,b)=>b[1]-a[1]);
+        html += `<div style="margin-bottom:8px;"><strong>Ders Dağılımı:</strong><br>`;
+        sortedSub.forEach(([sub, count]) => { html += `<span style="display:inline-block; background:rgba(255,255,255,0.1); padding:4px 8px; border-radius:6px; margin:2px;">${sub}: ${count}</span> `; });
+        html += `</div>`;
+        
+        $('analytics-content').innerHTML = html;
+    } catch(e) { console.error(e); }
 }
 
 // ---------- AUTH MODAL ----------
 let authMode = 'login';
 function openAuthModal() {
     authMode = 'login'; toggleAuthModeUI();
-    $('auth-email').value = ''; $('auth-password').value = ''; $('auth-name').value = ''; $('auth-code').value = '';
+    $('auth-email').value = ''; $('auth-password').value = ''; $('auth-name').value = ''; $('auth-code').value = ''; $('auth-referral').value = '';
     $('auth-modal').classList.remove('hidden');
 }
 function toggleAuthModeUI() {
@@ -136,6 +142,7 @@ function toggleAuthModeUI() {
     $('auth-register-fields').classList.toggle('hidden', !isReg);
     $('auth-password-confirm-wrap').classList.toggle('hidden', !isReg);
     $('auth-code-wrap').classList.toggle('hidden', !isReg);
+    if($('auth-referral-wrap')) $('auth-referral-wrap').classList.toggle('hidden', !isReg);
 }
 $('auth-close').addEventListener('click', () => $('auth-modal').classList.add('hidden'));
 $('auth-switch').addEventListener('click', () => { authMode = authMode === 'login' ? 'register' : 'login'; toggleAuthModeUI(); });
@@ -156,25 +163,23 @@ $('auth-submit').addEventListener('click', async () => {
             if (data.token) { authToken = data.token; localStorage.setItem('yks_token', authToken); $('auth-modal').classList.add('hidden'); await fetchStatus(); showToast('Giriş yapıldı! 👋'); switchTab('settings'); }
         } else {
             const name = $('auth-name').value.trim(); const code = $('auth-code').value.trim(); const passConfirm = $('auth-password-confirm').value;
+            const refCode = $('auth-referral') ? $('auth-referral').value.trim() : '';
             if (password !== passConfirm) { showToast('Şifreler uyuşmuyor.'); return; }
             if (!name || !code) { showToast('İsim ve kod gerekli.'); return; }
-            const data = await postJson('/api/register', { email, password, name, code });
+            const data = await postJson('/api/register', { email, password, name, code, referral_code: refCode });
             if (data.token) { authToken = data.token; localStorage.setItem('yks_token', authToken); $('auth-modal').classList.add('hidden'); await fetchStatus(); showToast('Kayıt olundu! 🎉'); switchTab('settings'); }
         }
     } catch (err) { showToast(err.message); }
 });
 
-// ---------- ALT SAYFALAR (AYARLAR İÇİN) ----------
+// ---------- ALT SAYFALAR ----------
 function openSubView(targetId) {
     switchTab(targetId);
     
     if (targetId === 'setting-account') {
         const el = $('account-page-content');
         if (!userStatus.email) {
-            el.innerHTML = `
-                <p class="muted small">Şu an anonim olarak kullanıyorsunuz. İlerlemeyi kaydetmek için hesap oluşturun.</p>
-                <button id="subpage-login-btn" class="primary-btn full" style="margin-top:15px;">Giriş Yap / Kayıt Ol</button>
-            `;
+            el.innerHTML = `<p class="muted small">Şu an anonim olarak kullanıyorsunuz.</p><button id="subpage-login-btn" class="primary-btn full" style="margin-top:15px;">Giriş Yap / Kayıt Ol</button>`;
             $('subpage-login-btn').addEventListener('click', openAuthModal);
         } else {
             el.innerHTML = `
@@ -183,13 +188,10 @@ function openSubView(targetId) {
                 <div style="display:flex; flex-direction:column; gap:8px; margin-top:20px;">
                     <button id="subpage-logout-btn" class="ghost-btn full">Çıkış Yap</button>
                     <button id="subpage-delete-btn" class="ghost-btn full" style="border-color:var(--coral); color:var(--coral);">Hesabı Sil</button>
-                </div>
-            `;
-            $('subpage-logout-btn').addEventListener('click', () => {
-                if (confirm('Çıkış yapmak istiyor musunuz?')) { authToken = null; localStorage.removeItem('yks_token'); fetchStatus(); switchTab('settings'); }
-            });
+                </div>`;
+            $('subpage-logout-btn').addEventListener('click', () => { if (confirm('Çıkış yapmak istiyor musunuz?')) { authToken = null; localStorage.removeItem('yks_token'); fetchStatus(); switchTab('settings'); } });
             $('subpage-delete-btn').addEventListener('click', async () => {
-                if (confirm('Hesabınızı ve tüm verilerinizi kalıcı olarak silmek istediğinize emin misiniz?')) {
+                if (confirm('Hesabınızı silmek istediğinize emin misiniz?')) {
                     try { await fetch('/api/delete-account', { method: 'DELETE', headers: authHeaders() }); authToken = null; localStorage.removeItem('yks_token'); fetchStatus(); switchTab('settings'); showToast('Hesap silindi.'); } catch { showToast('Hesap silinemedi.'); }
                 }
             });
@@ -201,60 +203,24 @@ function openSubView(targetId) {
         if (userStatus.is_premium && userStatus.premium_until) {
             const daysLeft = Math.max(0, Math.ceil((userStatus.premium_until * 1000 - Date.now()) / (1000 * 60 * 60 * 24)));
             const d = new Date(userStatus.premium_until * 1000).toLocaleDateString('tr-TR');
-            el.innerHTML = `
-                <div class="glass-card" style="text-align:center; border-color:var(--neon-blue);">
-                    <div style="font-size:48px; font-weight:800; color:var(--neon-blue);">${daysLeft}</div>
-                    <div class="muted small">gün kaldı</div>
-                    <div class="small" style="margin-top:8px;">Bitiş Tarihi: ${d}</div>
-                </div>
-            `;
+            el.innerHTML = `<div class="glass-card" style="text-align:center; border-color:var(--neon-blue);"><div style="font-size:48px; font-weight:800; color:var(--neon-blue);">${daysLeft}</div><div class="muted small">gün kaldı</div><div class="small" style="margin-top:8px;">Bitiş Tarihi: ${d}</div></div>`;
         } else {
             el.innerHTML = `
                 <div class="plans">
-                    <div class="plan">
-                        <div class="plan-name">Günlük</div>
-                        <div class="plan-price">29 ₺<small>/gün</small></div>
-                        <button class="buy-btn primary-btn full" data-plan="daily">Satın Al</button>
-                    </div>
-                    <div class="plan">
-                        <div class="plan-name">Aylık</div>
-                        <div class="plan-price"><del style="font-size:16px; color:#94a3b8; margin-right:4px;">200 ₺</del>149 ₺<small>/ay</small></div>
-                        <button class="buy-btn primary-btn full" data-plan="monthly">Satın Al</button>
-                    </div>
-                    <div class="plan popular">
-                        <div class="ribbon">Popüler</div>
-                        <div class="plan-name">Yıllık</div>
-                        <div class="plan-price"><del style="font-size:16px; color:#94a3b8; margin-right:4px;">2400 ₺</del>1499 ₺<small>/yıl</small></div>
-                        <button class="buy-btn primary-btn full" data-plan="yearly">Satın Al</button>
-                    </div>
-                </div>
-            `;
+                    <div class="plan"><div class="plan-name">Günlük</div><div class="plan-price">29 ₺<small>/gün</small></div><button class="buy-btn primary-btn full" data-plan="daily">Satın Al</button></div>
+                    <div class="plan"><div class="plan-name">Aylık</div><div class="plan-price"><del style="font-size:16px; color:#94a3b8; margin-right:4px;">200 ₺</del>149 ₺<small>/ay</small></div><button class="buy-btn primary-btn full" data-plan="monthly">Satın Al</button></div>
+                    <div class="plan popular"><div class="ribbon">Popüler</div><div class="plan-name">Yıllık</div><div class="plan-price"><del style="font-size:16px; color:#94a3b8; margin-right:4px;">2400 ₺</del>1499 ₺<small>/yıl</small></div><button class="buy-btn primary-btn full" data-plan="yearly">Satın Al</button></div>
+                </div>`;
             el.querySelectorAll('.buy-btn').forEach((btn) => btn.addEventListener('click', async () => {
                 const originalText = btn.textContent; btn.textContent = 'İşleniyor...'; btn.disabled = true;
-                try {
-                    const res = await fetch('/api/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify({ plan: btn.dataset.plan }) });
-                    const data = await res.json().catch(() => ({}));
-                    if (res.ok) { showToast('Ödeme başarılı! 🎉'); applyStatus(data); await fetchStatus(); switchTab('panel'); }
-                    else showToast(data.error || 'Hata oluştu.');
-                } catch { showToast('Bağlantı hatası.'); } finally { btn.textContent = originalText; btn.disabled = false; }
+                try { const res = await fetch('/api/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify({ plan: btn.dataset.plan }) }); const data = await res.json().catch(() => ({})); if (res.ok) { showToast('Ödeme başarılı! 🎉'); applyStatus(data); switchTab('panel'); } else showToast(data.error || 'Hata oluştu.'); } catch { showToast('Bağlantı hatası.'); } finally { btn.textContent = originalText; btn.disabled = false; }
             }));
         }
     }
 }
 
-document.querySelectorAll('.setting-item').forEach(item => {
-    item.addEventListener('click', () => {
-        const target = item.dataset.target;
-        openSubView(target);
-    });
-});
-
-document.querySelectorAll('.back-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-        const backTarget = btn.dataset.back;
-        switchTab(backTarget);
-    });
-});
+document.querySelectorAll('.setting-item').forEach(item => item.addEventListener('click', () => openSubView(item.dataset.target)));
+document.querySelectorAll('.back-btn').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.back)));
 
 // ---------- GERİ SAYIM ----------
 let countdownInterval = null;
@@ -268,11 +234,35 @@ function updateCountdown() {
 }
 function startCountdown() { if (countdownInterval) clearInterval(countdownInterval); updateCountdown(); countdownInterval = setInterval(updateCountdown, 1000); }
 
-// ---------- MESAJ BALONLARI ----------
-function messageHtml({ role, body, cls = '', avatar = ABI_AVATAR }) { if (role === 'user') return `<div class="message user ${cls}"><div class="msg-bubble">${body}</div></div>`; return `<div class="message ai ${cls}">${avatar}<div class="msg-bubble">${body}</div></div>`; }
-function addMessage(container, opts) { container.insertAdjacentHTML('beforeend', messageHtml(opts)); const el = container.lastElementChild; scrollEnd(container); return el; }
+// ---------- MESAJ BALONLARI & SESLİ OKUMA ----------
+function messageHtml({ role, body, cls = '', avatar = ABI_AVATAR }) { 
+    if (role === 'user') return `<div class="message user ${cls}"><div class="msg-bubble">${body}</div></div>`; 
+    return `<div class="message ai ${cls}">${avatar}<div class="msg-bubble">${body}<button class="read-aloud-btn" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px; margin-top:4px; padding:4px;" title="Sesli Oku" onclick="speakText(this)">🔊</button></div></div>`; 
+}
+
+function addMessage(container, opts) { 
+    container.insertAdjacentHTML('beforeend', messageHtml(opts)); 
+    const el = container.lastElementChild; scrollEnd(container); return el; 
+}
 function addTyping(container, avatar) { return addMessage(container, { role: 'ai', avatar, body: '<div class="typing-indicator"><span></span><span></span><span></span></div>' }); }
-function addAiMarkdown(container, text, avatar) { const el = addMessage(container, { role: 'ai', avatar, body: '' }); const bubble = el.querySelector('.msg-bubble'); bubble.innerHTML = renderMarkdown(text); renderMath(bubble); scrollEnd(container); return el; }
+function addAiMarkdown(container, text, avatar) { 
+    const el = addMessage(container, { role: 'ai', avatar, body: '' }); 
+    const bubble = el.querySelector('.msg-bubble'); 
+    // Sesli okuma butonunu metnin en altına ekle
+    bubble.innerHTML = renderMarkdown(text) + `<button class="read-aloud-btn" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px; margin-top:4px; padding:4px;" title="Sesli Oku" onclick="speakText(this)">🔊</button>`; 
+    renderMath(bubble); scrollEnd(container); return el; 
+}
+
+// Global Sesli Okuma Fonksiyonu
+window.speakText = function(btn) {
+    const text = btn.parentElement.innerText.replace('🔊', '').trim();
+    if (!text) return;
+    window.speechSynthesis.cancel(); // Önceki konuşmayı durdur
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'tr-TR';
+    utterance.rate = 1.0;
+    window.speechSynthesis.speak(utterance);
+};
 
 // ---------- SAYAÇLAR ----------
 function dayCounter(key) { return { get() { const v = store.get(key, { date: null, count: 0 }); return v.date === todayKey() ? v.count : 0; }, bump(n = 1) { store.set(key, { date: todayKey(), count: this.get() + n }); } }; }
@@ -292,11 +282,9 @@ function switchTab(tabId) {
     const targetView = $('view-' + tabId);
     if(targetView) targetView.classList.add('active');
     
-    // Ana menü sekmeleri için active class
     const nav = document.querySelector(`.nav-item[data-tab="${tabId}"]`); 
     if (nav) nav.classList.add('active');
     
-    // Alt sayfalardaysa ana navigasyonu 'settings' olarak tut
     const isSubPage = tabId.startsWith('setting-');
     if (isSubPage) {
         const settingsNav = document.querySelector('.nav-item[data-tab="settings"]');
@@ -304,7 +292,7 @@ function switchTab(tabId) {
     }
     
     if (tabId === 'archive') { loadArchive(); }
-    if (tabId === 'panel') { renderStats(); startCountdown(); }
+    if (tabId === 'panel') { renderStats(); startCountdown(); fetchStatus(); }
     if (tabId === 'solve') scrollEnd($('chat-history'));
     if (tabId === 'coach') scrollEnd($('coach-messages'));
     if (tabId === 'settings') { fetchStatus(); }
@@ -360,7 +348,7 @@ function clearTransient() { chatHistory.querySelectorAll('.feedback-row,.quick-r
 
 async function sendMessage() {
     if (sending) return; const text = messageInput.value.trim(); if (!selectedFile && !text) return;
-    if (!userStatus.is_premium && userStatus.remaining <= 0) { showToast('Günlük soru hakkın doldu. Sınırsız çözüm için Premium\'a geç.'); switchTab('settings'); openSubView('setting-premium'); return; }
+    if (!userStatus.is_premium && userStatus.remaining <= 0) { showToast('Günlük soru hakkın doldu.'); switchTab('settings'); openSubView('setting-premium'); return; }
     clearTransient(); if (selectedFile) await solveImage(text); else await askFollowup(text);
 }
 
@@ -438,7 +426,7 @@ $('archive-filter').addEventListener('click', (e) => { const chip = e.target.clo
 function renderArchiveList() {
     const list = $('archive-list'); const items = archiveFilter === 'Hepsi' ? archiveData : archiveData.filter((q) => q.subject === archiveFilter);
     if (items.length === 0) { list.innerHTML = `<div class="glass-card muted" style="text-align:center">📭 Burada henüz soru yok.</div>`; return; }
-    list.innerHTML = items.map((item, i) => { const date = new Date(item.created_at).toLocaleDateString('tr-TR'); return `<div class="glass-card" style="margin-bottom:14px"><img class="arch-img" src="${item.image}" alt="Soru"><div class="arch-meta"><span class="arch-tag">${escapeHtml(item.subject)}</span><span class="small muted">${date}</span></div><button type="button" class="ghost-btn full archive-toggle" data-index="${i}">Çözümü göster</button><div class="archive-answer hidden" id="answer-${i}">${renderMarkdown(item.answer)}</div></div>`; }).join('');
+    list.innerHTML = items.map((item, i) => { const date = new Date(item.created_at).toLocaleDateString('tr-TR'); return `<div class="glass-card" style="margin-bottom:14px"><img class="arch-img" src="${item.image}" alt="Soru"><div class="arch-meta"><span class="arch-tag">${escapeHtml(item.subject)}</span><span class="small muted">${date}</span></div><button type="button" class="ghost-btn full archive-toggle" data-index="${i}">Çözümü göster</button><div class="archive-answer hidden" id="answer-${i}">${renderMarkdown(item.answer)}<button class="read-aloud-btn" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px; margin-top:8px;" onclick="speakText(this)">🔊 Sesli Dinle</button></div></div>`; }).join('');
     list.querySelectorAll('.archive-toggle').forEach((btn) => btn.addEventListener('click', () => { const answer = $('answer-' + btn.dataset.index); const opening = answer.classList.contains('hidden'); answer.classList.toggle('hidden', !opening); btn.textContent = opening ? 'Çözümü gizle' : 'Çözümü göster'; if (opening && !answer.dataset.rendered) { renderMath(answer); answer.dataset.rendered = '1'; } }));
 }
 async function loadArchive() { const list = $('archive-list'); list.innerHTML = '<div class="glass-card muted">Yükleniyor...</div>'; try { const response = await fetch('/history', { headers: authHeaders() }); if (!response.ok) throw new Error(); archiveData = await response.json(); archiveFilter = 'Hepsi'; renderArchiveFilter(); renderArchiveList(); } catch { list.innerHTML = '<div class="glass-card" style="color:var(--coral)">Arşiv yüklenemedi.</div>'; } }

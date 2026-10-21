@@ -30,18 +30,13 @@ function todayKey(d = new Date()) { return `${d.getFullYear()}-${String(d.getMon
 
 let toastTimer;
 function showToast(message) {
-    const el = $('toast');
-    el.textContent = message;
-    el.classList.remove('hidden');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => el.classList.add('hidden'), 3200);
+    const el = $('toast'); el.textContent = message; el.classList.remove('hidden');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.add('hidden'), 3200);
 }
-
 function renderMath(el) { if (typeof renderMathInElement === 'function') renderMathInElement(el, MATH_OPTIONS); }
 function scrollEnd(container) { if (container) requestAnimationFrame(() => { container.scrollTop = container.scrollHeight; }); }
 const isDesktop = window.matchMedia('(pointer: fine)').matches;
 
-// Markdown + LaTeX: formülleri marked bozmasın diye önce saklıyoruz, sonra geri koyuyoruz.
 function renderMarkdown(text) {
     const maths = [];
     const t = String(text).replace(/\$\$[\s\S]+?\$\$|\$[^$\n]+?\$/g, (m) => { maths.push(m); return `@@M${maths.length - 1}@@`; });
@@ -52,22 +47,16 @@ function renderMarkdown(text) {
 
 async function postJson(url, body) {
     let response;
-    try {
-        response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    } catch {
-        throw new Error('Bağlantı kurulamadı.');
-    }
+    try { response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); } 
+    catch { throw new Error('Bağlantı kurulamadı.'); }
     let data = {}; try { data = await response.json(); } catch { }
     if (!response.ok || !data.answer) {
         const msg = [data.error, data.detail].find((m) => typeof m === 'string');
-        const err = new Error(msg || 'Şu an cevap hazırlanamadı.');
-        err.status = response.status;
-        throw err;
+        const err = new Error(msg || 'Şu an cevap hazırlanamadı.'); err.status = response.status; throw err;
     }
     return data;
 }
 
-// Fotoğrafı küçült (hız + sunucu limiti)
 function compressImage(file, maxSide = 1600, quality = 0.85) {
     return new Promise((resolve) => {
         const url = URL.createObjectURL(file);
@@ -76,7 +65,7 @@ function compressImage(file, maxSide = 1600, quality = 0.85) {
             const s = Math.min(1, maxSide / Math.max(img.width, img.height));
             const w = Math.round(img.width * s), h = Math.round(img.height * s);
             const c = document.createElement('canvas'); c.width = w; c.height = h;
-            const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h); ctx.drawImage(img, 0, 0, w, h);
+            c.getContext('2d').drawImage(img, 0, 0, w, h);
             URL.revokeObjectURL(url);
             c.toBlob((b) => resolve(b || file), 'image/jpeg', quality);
         };
@@ -97,16 +86,12 @@ function applyStatus(data) {
     updateQuotaUI(); updatePremiumUI();
 }
 async function fetchStatus() {
-    try {
-        const res = await fetch('/api/status');
-        if (res.ok) applyStatus(await res.json());
-    } catch (e) { console.error('Durum alınamadı', e); }
+    try { const res = await fetch('/api/status'); if (res.ok) applyStatus(await res.json()); } catch (e) {}
 }
 function updateQuotaUI() {
     const text = $('quota-text'); if (!text) return;
-    if (userStatus.is_premium) {
-        text.textContent = 'Sınırsız 💎'; text.style.color = 'var(--neon-blue)';
-    } else {
+    if (userStatus.is_premium) { text.textContent = 'Sınırsız 💎'; text.style.color = 'var(--neon-blue)'; } 
+    else {
         text.innerHTML = `Kalan Hak: <strong>${userStatus.remaining}</strong>`;
         text.style.color = userStatus.remaining === 0 ? 'var(--coral)' : 'var(--accent)';
     }
@@ -288,14 +273,10 @@ renderSubjects('TYT');
 async function handleFile(file, inputEl) {
     if (!file || !file.type.startsWith('image/')) { showToast('Lütfen bir fotoğraf seç.'); return; }
     const blob = await compressImage(file);
-    selectedFile = blob;
-    selectedPreviewUrl = URL.createObjectURL(blob);
-    $('preview-img').src = selectedPreviewUrl;
-    $('image-preview').classList.remove('hidden');
+    selectedFile = blob; selectedPreviewUrl = URL.createObjectURL(blob);
+    $('preview-img').src = selectedPreviewUrl; $('image-preview').classList.remove('hidden');
     messageInput.placeholder = 'İstersen soruyla ilgili not yaz, sonra gönder...';
-    updateSendState();
-    if (inputEl) inputEl.value = '';
-    scrollEnd(chatHistory);
+    updateSendState(); if (inputEl) inputEl.value = ''; scrollEnd(chatHistory);
 }
 cameraInput.addEventListener('change', (e) => handleFile(e.target.files[0], cameraInput));
 galleryInput.addEventListener('change', (e) => handleFile(e.target.files[0], galleryInput));
@@ -315,11 +296,9 @@ function clearTransient() { chatHistory.querySelectorAll('.feedback-row,.quick-r
 
 async function sendMessage() {
     if (sending) return;
-    const text = messageInput.value.trim();
-    if (!selectedFile && !text) return;
+    const text = messageInput.value.trim(); if (!selectedFile && !text) return;
     if (!userStatus.is_premium && userStatus.remaining <= 0) {
-        showToast('Günlük soru hakkın doldu. Sınırsız çözüm için Premium\'a geç.');
-        switchTab('premium'); return;
+        showToast('Günlük soru hakkın doldu. Sınırsız çözüm için Premium\'a geç.'); switchTab('premium'); return;
     }
     clearTransient();
     if (selectedFile) await solveImage(text); else await askFollowup(text);
@@ -329,11 +308,7 @@ function handleLimit(err) { showToast('Günlük hakkın doldu.'); switchTab('pre
 
 async function solveImage(note) {
     const fileToSend = selectedFile, previewUrl = selectedPreviewUrl, subject = selectedSubject;
-    // Fotoğraf doğrudan sohbette görünür
-    addMessage(chatHistory, {
-        role: 'user',
-        body: `<img class="chat-img" src="${previewUrl}" alt="Soru fotoğrafı">${note ? `<div>${nl2br(note)}</div>` : ''}`,
-    });
+    addMessage(chatHistory, { role: 'user', body: `<img class="chat-img" src="${previewUrl}" alt="Soru">${note ? `<div>${nl2br(note)}</div>` : ''}` });
     messageInput.value = ''; autoGrow(messageInput); clearImage(); setSending(true); touchStreak();
 
     const typing = addTyping(chatHistory, ABI_AVATAR);
@@ -364,12 +339,10 @@ async function askFollowup(text) {
     const typing = addTyping(chatHistory, ABI_AVATAR);
     try {
         const data = await postJson('/followup', { subject: thread.subject, note: thread.note, solution: thread.solution, history: thread.history.slice(-10), message: text });
-        typing.remove();
-        thread.history.push({ role: 'user', content: text }, { role: 'assistant', content: data.answer });
+        typing.remove(); thread.history.push({ role: 'user', content: text }, { role: 'assistant', content: data.answer });
         addAiMarkdown(chatHistory, data.answer); addFeedbackRow(); applyStatus(data);
     } catch (err) {
-        typing.remove();
-        if (err.status === 403) handleLimit();
+        typing.remove(); if (err.status === 403) handleLimit();
         addMessage(chatHistory, { role: 'ai', body: escapeHtml(err.message), cls: 'error' });
     } finally { setSending(false); scrollEnd(chatHistory); }
 }
@@ -413,8 +386,7 @@ function clearImage() {
     selectedFile = null; selectedPreviewUrl = null;
     cameraInput.value = ''; galleryInput.value = '';
     $('image-preview').classList.add('hidden'); $('preview-img').removeAttribute('src');
-    messageInput.placeholder = 'Takıldığın yeri yaz...';
-    updateSendState();
+    messageInput.placeholder = 'Takıldığın yeri yaz...'; updateSendState();
 }
 
 addMessage(chatHistory, { role: 'ai', body: 'Merhaba! 👋 Bir soru fotoğrafı yükle ya da takıldığın yeri yaz, adım adım çözelim.' });
@@ -444,16 +416,14 @@ async function sendCoach(text) {
     const typing = addTyping(coachMessages, COACH_AVATAR);
     try {
         const data = await postJson('/coach', { message: text, history: coachHistory.slice(-12), profile: getProfile() });
-        typing.remove();
-        coachHistory.push({ role: 'user', content: text }, { role: 'assistant', content: data.answer });
+        typing.remove(); coachHistory.push({ role: 'user', content: text }, { role: 'assistant', content: data.answer });
         addAiMarkdown(coachMessages, data.answer, COACH_AVATAR);
     } catch (err) {
-        typing.remove();
-        addMessage(coachMessages, { role: 'ai', avatar: COACH_AVATAR, body: escapeHtml(err.message), cls: 'error' });
+        typing.remove(); addMessage(coachMessages, { role: 'ai', avatar: COACH_AVATAR, body: escapeHtml(err.message), cls: 'error' });
     } finally { coachSending = false; updateCoachSend(); scrollEnd(coachMessages); }
 }
 
-// ---------- 4) ODAKLAN (tam ekran saat) ----------
+// ---------- 4) ODAKLAN ----------
 const pomo = { total: 25 * 60, remaining: 25 * 60, running: false, endAt: 0, timer: null, wake: null };
 
 function fmt(sec) { return `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`; }
@@ -546,10 +516,8 @@ function renderArchiveList() {
 async function loadArchive() {
     const list = $('archive-list'); list.innerHTML = '<div class="glass-card muted">Yükleniyor...</div>';
     try {
-        const response = await fetch('/history');
-        if (!response.ok) throw new Error();
-        archiveData = await response.json();
-        archiveFilter = 'Hepsi'; renderArchiveFilter(); renderArchiveList();
+        const response = await fetch('/history'); if (!response.ok) throw new Error();
+        archiveData = await response.json(); archiveFilter = 'Hepsi'; renderArchiveFilter(); renderArchiveList();
     } catch { list.innerHTML = '<div class="glass-card" style="color:var(--coral)">Arşiv yüklenemedi.</div>'; }
 }
 
@@ -580,9 +548,9 @@ $('generate-pdf-btn').addEventListener('click', async () => {
         if (filtered.length === 0) { showToast('Seçtiğin derslerde arşivde soru yok.'); return; }
         filtered = filtered.sort(() => 0.5 - Math.random()).slice(0, count);
 
-        // Ekran dışına (negatif left) koymak boş PDF'e yol açtığı için arkada, görünmez tutuyoruz.
+        // HATA DÜZELTİLDİ: z-index ve görünürlük ayarlandı.
         pdfContainer = document.createElement('div');
-        pdfContainer.style.cssText = 'width:794px;padding:40px;background:#fff;color:#000;font-family:Inter,Arial,sans-serif;position:fixed;top:0;left:0;z-index:-1;';
+        pdfContainer.style.cssText = 'width:794px;padding:40px;background:#fff;color:#000;font-family:Inter,Arial,sans-serif;position:fixed;top:0;left:0;z-index:9999;opacity:0;pointer-events:none;';
         let html = `<div style="text-align:center;margin-bottom:30px;border-bottom:2px solid #000;padding-bottom:10px"><h1 style="margin:0">YKS Sorumatik</h1><p>Kişiselleştirilmiş Deneme Testi</p></div><h3>SORULAR</h3>`;
         filtered.forEach((q, i) => {
             html += `<div style="margin-bottom:30px;page-break-inside:avoid"><strong>Soru ${i + 1} (${escapeHtml(q.subject)})</strong><br><img src="data:image/jpeg;base64,${q.image}" style="max-width:100%;max-height:400px;display:block;margin:10px 0"></div>`;

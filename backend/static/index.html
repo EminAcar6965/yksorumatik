@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#0f172a">
+    <meta name="theme-color" content="#0a0a1a">
     <title>YKS Sorumatik</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Lexend:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
     <link rel="stylesheet" href="/static/style.css">
 
@@ -17,256 +17,246 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
-    <div class="app-container">
-        <!-- Üst Bar -->
-        <header class="topbar">
+    <!-- Aurora Arka Plan Efektleri -->
+    <div class="aurora-bg">
+        <div class="glow glow-1"></div>
+        <div class="glow glow-2"></div>
+        <div class="glow glow-3"></div>
+    </div>
+
+    <div class="app-layout">
+        <!-- SOL MENÜ (Masaüstü) / ALT MENÜ (Mobil) -->
+        <aside class="sidebar">
             <div class="brand">
-                <span class="logo-icon" aria-hidden="true">🎯</span>
-                <div class="brand-text">
-                    <h1>YKS Sorumatik</h1>
-                    <span>Geleceğini inşa et, her soruda bir adım öne geç.</span>
+                <div class="logo-icon">🎯</div>
+                <span>YKS Sorumatik</span>
+            </div>
+
+            <nav class="nav-links">
+                <button id="nav-home" class="nav-item active" data-tab="home">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                    <span>Soru Çöz</span>
+                </button>
+                <button id="nav-coach" class="nav-item" data-tab="coach">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path></svg>
+                    <span>Panelim</span>
+                </button>
+                <button id="nav-archive" class="nav-item" data-tab="archive">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                    <span>Arşiv</span>
+                </button>
+                <button id="nav-pdf" class="nav-item" data-tab="pdf">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    <span>PDF</span>
+                </button>
+                <button id="nav-premium" class="nav-item" data-tab="premium">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12l4 6-10 12L2 9z"></path></svg>
+                    <span>Premium</span>
+                </button>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <div class="user-profile">
+                    <div class="avatar-placeholder">👨‍🎓</div>
+                    <div class="user-info">
+                        <strong>Öğrenci</strong>
+                        <span id="quota-text" style="color: var(--accent); font-size: 11px;">Hakkın: 3</span>
+                    </div>
                 </div>
             </div>
-            <div class="quota-badge" id="quota-badge" title="Kalan soru hakkın">
-                <span class="quota-dot"></span>
-                <span id="quota-text">Hakkın: <strong id="quota">...</strong></span>
-            </div>
-        </header>
+        </aside>
 
-        <main id="main-content">
-            <!-- 1. SORU ÇÖZ -->
-            <section id="view-home" class="view chat-view">
-                <div id="chat-history" class="chat-history" aria-live="polite">
-                    <div class="welcome-card" id="welcome-text">
-                        <div class="welcome-emoji" aria-hidden="true">🎓</div>
-                        <div>
-                            <h2>Hedefin belli, yolu birlikte çizelim.</h2>
-                            <p>Takıldığın TYT/AYT sorusunu yükle. YKS Mentor sadece çözmekle kalmaz, sınav taktiklerini ve pratik yolları da gösterir.</p>
+        <!-- ANA İÇERİK -->
+        <main class="main-content">
+            
+            <!-- 1. SORU ÇÖZ (Sohbet Ekranı) -->
+            <section id="view-home" class="view active">
+                <header class="view-header">
+                    <h1>Soru Çöz 🚀</h1>
+                    <p>Takıldığın soruyu yükle, adım adım çözelim.</p>
+                </header>
+
+                <div class="chat-container glass-card">
+                    <div id="chat-history" class="chat-history">
+                        <div class="message ai">
+                            <div class="msg-avatar">🧠</div>
+                            <div class="msg-bubble">Merhaba! Bir soru yükle veya takıldığın yeri yaz, hemen çözelim.</div>
                         </div>
                     </div>
-                </div>
+                    
+                    <div class="chat-input-area">
+                        <div class="chip-row" id="subject-chips">
+                            <button class="chip active" data-value="TYT Matematik">TYT Matematik</button>
+                            <button class="chip" data-value="TYT Türkçe">TYT Türkçe</button>
+                            <button class="chip" data-value="AYT Matematik">AYT Matematik</button>
+                            <button class="chip" data-value="AYT Fen">AYT Fen</button>
+                        </div>
+                        <div class="input-box">
+                            <input type="file" id="camera-input" accept="image/*" capture="environment" hidden>
+                            <label for="camera-input" class="icon-btn">📷</label>
+                            
+                            <input type="file" id="gallery-input" accept="image/*" hidden>
+                            <label for="gallery-input" class="icon-btn">🖼️</label>
 
-                <div class="composer-dock">
-                    <div class="chip-row scroll-x" id="subject-chips" role="radiogroup" aria-label="Ders seç">
-                        <button type="button" class="chip active" data-value="TYT Matematik" role="radio" aria-checked="true">TYT Matematik</button>
-                        <button type="button" class="chip" data-value="TYT Türkçe" role="radio" aria-checked="false">TYT Türkçe</button>
-                        <button type="button" class="chip" data-value="TYT Fen" role="radio" aria-checked="false">TYT Fen</button>
-                        <button type="button" class="chip" data-value="TYT Sosyal" role="radio" aria-checked="false">TYT Sosyal</button>
-                        <button type="button" class="chip" data-value="AYT Matematik" role="radio" aria-checked="false">AYT Matematik</button>
-                        <button type="button" class="chip" data-value="AYT Edebiyat" role="radio" aria-checked="false">AYT Edebiyat</button>
-                        <button type="button" class="chip" data-value="AYT Fen" role="radio" aria-checked="false">AYT Fen</button>
-                        <button type="button" class="chip" data-value="AYT Sosyal" role="radio" aria-checked="false">AYT Sosyal</button>
-                    </div>
-
-                    <div class="attach-preview hidden" id="preview-wrapper">
-                        <img id="image-preview" alt="Soru önizleme">
-                        <span class="attach-label">Soru hazır. Göndermeden önce not ekleyebilirsin.</span>
-                        <button type="button" id="remove-image-btn" class="remove-btn" aria-label="Fotoğrafı kaldır">✕</button>
-                    </div>
-
-                    <div class="input-row">
-                        <input type="file" id="camera-input" accept="image/*" capture="environment" hidden>
-                        <label for="camera-input" class="icon-btn camera-btn" title="Kamera ile Çek">📷</label>
-                        
-                        <input type="file" id="gallery-input" accept="image/*" hidden>
-                        <label for="gallery-input" class="icon-btn gallery-btn" title="Galeriden Seç">🖼️</label>
-
-                        <textarea id="message-input" rows="1" maxlength="1500" placeholder="Takıldığın yeri yaz..."></textarea>
-                        
-                        <button type="button" id="solve-btn" class="send-btn" aria-label="Gönder" disabled>
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
-                        </button>
+                            <input type="text" id="message-input" placeholder="Takıldığın yeri yaz...">
+                            <button id="solve-btn" class="send-btn" disabled>Gönder</button>
+                        </div>
                     </div>
                 </div>
             </section>
 
-            <!-- 2. KOÇ -->
-            <section id="view-coach" class="view coach-view hidden">
-                <div class="segmented" role="tablist">
-                    <button type="button" id="coach-tab-panel" class="seg active" role="tab">📊 Analiz Paneli</button>
-                    <button type="button" id="coach-tab-chat" class="seg" role="tab">💬 Sınav Koçu</button>
-                </div>
+            <!-- 2. KOÇ (Panelim - Görseldeki Ekran) -->
+            <section id="view-coach" class="view">
+                <header class="view-header">
+                    <h1 id="greeting-text">İyi günler! 👋</h1>
+                    <p>Mola vakti... Hadi başlayalım!</p>
+                </header>
 
-                <div id="coach-panel" class="coach-pane">
-                    <div class="coach-hero">
-                        <div class="coach-face" aria-hidden="true">🧠</div>
-                        <div>
-                            <h2 id="coach-greeting">Merhaba!</h2>
-                            <p id="coach-daily"></p>
-                        </div>
+                <!-- İstatistik Kartları -->
+                <div class="dashboard-grid">
+                    <!-- Seri Kartı -->
+                    <div class="glass-card stat-card">
+                        <div class="stat-title">Seri</div>
+                        <div class="stat-icon">🔥</div>
+                        <div class="stat-value" id="stat-streak">0</div>
+                        <div class="stat-label">gün seri</div>
                     </div>
-                    <div class="card hidden" id="name-card">
-                        <label class="card-title" for="name-input">Sana nasıl hitap edelim?</label>
-                        <div class="inline-form">
-                            <input type="text" id="name-input" maxlength="20" placeholder="Adın">
-                            <button type="button" id="name-save" class="small-btn">Kaydet</button>
-                        </div>
-                    </div>
-                    <div class="stats">
-                        <div class="tile">
-                            <span class="tile-emoji">🔥</span>
-                            <strong id="stat-streak">0</strong>
-                            <span class="tile-label">gün seri</span>
-                        </div>
-                        <div class="tile">
-                            <span class="tile-emoji">🎯</span>
-                            <strong id="stat-goal">0/10</strong>
-                            <span class="tile-label">günlük soru hedefi</span>
-                            <div class="bar"><div class="bar-fill" id="goal-bar"></div></div>
-                            <div class="mini-stepper">
-                                <button type="button" id="goal-minus">−</button>
-                                <button type="button" id="goal-plus">+</button>
+
+                    <!-- Günlük Hedef Kartı (Dairesel) -->
+                    <div class="glass-card stat-card center-card">
+                        <div class="stat-title">Günlük Hedef</div>
+                        <div class="circular-progress">
+                            <svg width="100" height="100">
+                                <circle cx="50" cy="50" r="40" stroke="rgba(255,255,255,0.1)" stroke-width="8" fill="none" />
+                                <circle cx="50" cy="50" r="40" stroke="#38bdf8" stroke-width="8" fill="none" 
+                                        stroke-dasharray="251.2" stroke-dashoffset="251.2" id="goal-circle" stroke-linecap="round"/>
+                            </svg>
+                            <div class="progress-text">
+                                <strong id="stat-goal">0/5</strong>
+                                <span>günlük hedef</span>
                             </div>
                         </div>
-                        <div class="tile">
-                            <span class="tile-emoji">⏳</span>
-                            <strong id="stat-exam">–</strong>
-                            <span class="tile-label">gün kaldı</span>
-                            <input type="date" id="exam-date" aria-label="Sınav tarihi">
+                        <div class="stepper">
+                            <button id="goal-minus">−</button>
+                            <button id="goal-plus">+</button>
                         </div>
                     </div>
-                    <div class="card">
-                        <div class="card-title">Bugünkü odak durumun?</div>
-                        <div class="mood-row" id="mood-row">
-                            <button type="button" class="mood" data-mood="yorgun" data-emoji="😫">😫<span>Yorgun</span></button>
-                            <button type="button" class="mood" data-mood="kaygılı" data-emoji="😕">😕<span>Kaygılı</span></button>
-                            <button type="button" class="mood" data-mood="iyi" data-emoji="🙂">🙂<span>İyi</span></button>
-                            <button type="button" class="mood" data-mood="çok motive" data-emoji="🤩">🤩<span>Odaklanmış</span></button>
+
+                    <!-- Kalan Süre Kartı -->
+                    <div class="glass-card stat-card">
+                        <div class="stat-title">Kalan Süre</div>
+                        <div class="stat-icon">⏳</div>
+                        <div class="stat-value" id="stat-exam">–</div>
+                        <div class="stat-label">gün kaldı</div>
+                        <input type="date" id="exam-date" class="date-input">
+                    </div>
+                </div>
+
+                <!-- Alt Sıra (Mod ve Pomodoro) -->
+                <div class="bottom-grid">
+                    <!-- Mood (Ruh Hali) -->
+                    <div class="glass-card mood-card">
+                        <div class="card-header">Bugün nasılsın?</div>
+                        <div class="mood-options" id="mood-row">
+                            <button class="mood-btn" data-mood="yorgun" data-emoji="😫">😫<br><span>Yorgun</span></button>
+                            <button class="mood-btn" data-mood="kaygılı" data-emoji="😕">😕<br><span>Kaygılı</span></button>
+                            <button class="mood-btn" data-mood="iyi" data-emoji="🙂">🙂<br><span>İyi</span></button>
+                            <button class="mood-btn" data-mood="çok motive" data-emoji="🤩">🤩<br><span>Motiveyim</span></button>
                         </div>
                         <div class="coach-note hidden" id="coach-note"></div>
                     </div>
-                    <div class="card pomodoro">
-                        <div class="card-title">Odaklan (Pomodoro) ⏱️ <small id="pomo-count">Bugün 0 tur</small></div>
-                        <div class="pomo-modes">
-                            <button type="button" id="pomo-focus" class="chip active">50 dk Ders</button>
-                            <button type="button" id="pomo-break" class="chip">10 dk Mola</button>
-                        </div>
-                        <div class="pomo-time" id="pomo-time">50:00</div>
+
+                    <!-- Pomodoro -->
+                    <div class="glass-card pomo-card">
+                        <div class="card-header">Odaklan</div>
+                        <div class="pomo-display" id="pomo-time">25:00</div>
                         <div class="pomo-actions">
-                            <button type="button" id="pomo-toggle" class="primary-btn">Başlat</button>
-                            <button type="button" id="pomo-reset" class="small-btn ghost">Sıfırla</button>
+                            <button id="pomo-toggle" class="primary-btn neon">Başlat</button>
+                            <button id="pomo-reset" class="secondary-btn">Sıfırla</button>
                         </div>
-                    </div>
-                    <div class="card">
-                        <div class="card-title">Koça Danış</div>
-                        <div class="quick-grid" id="coach-quick">
-                            <button type="button" class="quick-card" data-prompt="TYT netlerimi artırmak için 1 aylık bir strateji planı hazırla.">📈 TYT Net Artırma</button>
-                            <button type="button" class="quick-card" data-prompt="AYT Matematik için konu eksiklerimi nasıl kapatabilirim?">📚 AYT Konu Kapatma</button>
-                            <button type="button" class="quick-card" data-prompt="Sınavda zamanı yetiştiremiyorum, hızlanma taktikleri ver.">⏱️ Hızlanma Taktikleri</button>
-                            <button type="button" class="quick-card" data-prompt="Deneme sınavı analizi nasıl yapılır, yanlışlarımı nasıl değerlendirmeliyim?">📊 Deneme Analizi</button>
-                            <button type="button" class="quick-card" data-prompt="Sınav kaygım çok yüksek, nasıl başa çıkabilirim?">😰 Sınav Kaygısı</button>
-                            <button type="button" class="quick-card" data-prompt="Bölüm tercihleri ve üniversite hedefleri hakkında ne düşünmeliyim?">🎓 Tercih Danışmanlığı</button>
-                        </div>
+                        <div class="pomo-count" id="pomo-count">Bugün 0 tur</div>
                     </div>
                 </div>
-
-                <div id="coach-chat" class="coach-chat hidden">
-                    <div id="coach-messages" class="chat-history" aria-live="polite"></div>
-                    <div class="composer-dock">
-                        <div class="input-row">
-                            <textarea id="coach-input" rows="1" maxlength="1500" placeholder="Sınav stratejisi, plan veya kaygılarını yaz..."></textarea>
-                            <button type="button" id="coach-send" class="send-btn" aria-label="Gönder" disabled>
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
-                            </button>
-                        </div>
+                
+                <!-- Koçla Konuş (Sohbet) -->
+                <div class="glass-card coach-chat-card">
+                    <div class="card-header">Koça Danış</div>
+                    <div class="quick-grid" id="coach-quick">
+                        <button class="quick-btn" data-prompt="TYT netlerimi artırmak için 1 aylık bir strateji planı hazırla.">📈 TYT Net Artırma</button>
+                        <button class="quick-btn" data-prompt="AYT Matematik için konu eksiklerimi nasıl kapatabilirim?">📚 AYT Konu Kapatma</button>
+                        <button class="quick-btn" data-prompt="Sınavda zamanı yetiştiremiyorum, hızlanma taktikleri ver.">⏱️ Hızlanma Taktikleri</button>
+                    </div>
+                    <div id="coach-messages" class="chat-history" style="max-height: 200px; margin-top: 10px;"></div>
+                    <div class="input-box" style="margin-top: 10px;">
+                        <input type="text" id="coach-input" placeholder="Koçuna yaz...">
+                        <button id="coach-send" class="send-btn" disabled>Gönder</button>
                     </div>
                 </div>
             </section>
 
             <!-- 3. ARŞİV -->
-            <section id="view-archive" class="view hidden">
-                <div class="page-title">
-                    <h2>Soru Arşivim 📁</h2>
-                    <p>Geçmişte çözdüğün sorular ve stratejik çözümler. Tekrar etmek için ideal.</p>
-                </div>
-                <div class="chip-row" id="archive-filter" aria-label="Derse göre filtrele"></div>
+            <section id="view-archive" class="view">
+                <header class="view-header">
+                    <h1>Soru Arşivim 📁</h1>
+                    <p>Geçmişte çözdüğün sorular.</p>
+                </header>
+                <div class="chip-row" id="archive-filter"></div>
                 <div id="archive-list"></div>
             </section>
 
             <!-- 4. PDF -->
-            <section id="view-pdf" class="view hidden">
-                <div class="page-title">
-                    <h2>Kişiselleştirilmiş Deneme 📄</h2>
-                    <p>Yanlış yaptığın sorulardan rastgele bir PDF testi oluştur.</p>
-                </div>
-
-                <div class="pdf-settings">
-                    <div class="field-label">Dersler <small>(birden fazla seçebilirsin)</small></div>
+            <section id="view-pdf" class="view">
+                <header class="view-header">
+                    <h1>Kişiselleştirilmiş Deneme 📄</h1>
+                    <p>Yanlışlarından rastgele test oluştur.</p>
+                </header>
+                <div class="glass-card pdf-settings">
+                    <div class="card-header">Dersler</div>
                     <div class="checkbox-group" id="pdf-subjects">
                         <label class="check-chip"><input type="checkbox" value="TYT Matematik" checked><span>TYT Matematik</span></label>
                         <label class="check-chip"><input type="checkbox" value="TYT Türkçe" checked><span>TYT Türkçe</span></label>
                         <label class="check-chip"><input type="checkbox" value="TYT Fen" checked><span>TYT Fen</span></label>
-                        <label class="check-chip"><input type="checkbox" value="TYT Sosyal"><span>TYT Sosyal</span></label>
                         <label class="check-chip"><input type="checkbox" value="AYT Matematik"><span>AYT Matematik</span></label>
-                        <label class="check-chip"><input type="checkbox" value="AYT Edebiyat"><span>AYT Edebiyat</span></label>
                         <label class="check-chip"><input type="checkbox" value="AYT Fen"><span>AYT Fen</span></label>
-                        <label class="check-chip"><input type="checkbox" value="AYT Sosyal"><span>AYT Sosyal</span></label>
                     </div>
-
-                    <div class="field-label">Soru sayısı</div>
+                    <div class="card-header" style="margin-top: 20px;">Soru Sayısı</div>
                     <div class="counter">
-                        <button type="button" id="count-minus">−</button>
-                        <input type="number" id="pdf-count" value="10" min="1" max="50" inputmode="numeric">
-                        <button type="button" id="count-plus">+</button>
+                        <button id="count-minus">−</button>
+                        <input type="number" id="pdf-count" value="10" min="1" max="50">
+                        <button id="count-plus">+</button>
                     </div>
-                    <button type="button" id="generate-pdf-btn" class="primary-btn green">PDF İndir 📥</button>
+                    <button id="generate-pdf-btn" class="primary-btn neon" style="margin-top: 20px;">PDF İndir 📥</button>
                 </div>
             </section>
 
             <!-- 5. PREMIUM -->
-            <section id="view-premium" class="view hidden">
-                <div class="page-title">
-                    <h2>Sınırsız Soru Çöz 💎</h2>
-                    <p>Günlük 3 soru limitini kaldır, YKS Mentor'u sınırsız kullan!</p>
-                </div>
-
+            <section id="view-premium" class="view">
+                <header class="view-header">
+                    <h1>Sınırsız Soru Çöz 💎</h1>
+                    <p>Limitleri kaldır, potansiyelini açığa çıkar.</p>
+                </header>
                 <div class="premium-grid">
-                    <div class="premium-card">
+                    <div class="glass-card premium-card">
                         <h3>Haftalık</h3>
                         <div class="price">₺49</div>
-                        <ul>
-                            <li>✅ Sınırsız Soru</li>
-                            <li>✅ Hızlı Yanıt</li>
-                        </ul>
-                        <button class="primary-btn buy-btn" data-plan="haftalik">Satın Al</button>
+                        <ul><li>✅ Sınırsız Soru</li><li>✅ Hızlı Yanıt</li></ul>
+                        <button class="primary-btn buy-btn">Satın Al</button>
                     </div>
-                    <div class="premium-card popular">
-                        <div class="badge">EN ÇOK TERCİH EDİLEN</div>
+                    <div class="glass-card premium-card popular">
+                        <div class="badge">EN POPÜLER</div>
                         <h3>Aylık</h3>
                         <div class="price">₺149</div>
-                        <ul>
-                            <li>✅ Sınırsız Soru</li>
-                            <li>✅ Öncelikli Yanıt</li>
-                            <li>✅ PDF İndirme</li>
-                        </ul>
-                        <button class="primary-btn buy-btn" data-plan="aylik">Satın Al</button>
-                    </div>
-                    <div class="premium-card">
-                        <h3>Yıllık</h3>
-                        <div class="price">₺999</div>
-                        <ul>
-                            <li>✅ Sınırsız Soru</li>
-                            <li>✅ Öncelikli Yanıt</li>
-                            <li>✅ PDF İndirme</li>
-                            <li>✅ %50 Tasarruf</li>
-                        </ul>
-                        <button class="primary-btn buy-btn" data-plan="yillik">Satın Al</button>
+                        <ul><li>✅ Sınırsız Soru</li><li>✅ PDF İndirme</li></ul>
+                        <button class="primary-btn buy-btn">Satın Al</button>
                     </div>
                 </div>
             </section>
-        </main>
 
-        <!-- Alt menü -->
-        <nav class="bottom-nav" aria-label="Ana menü">
-            <button type="button" id="nav-home" class="active"><span class="nav-ico">💬</span><span>Soru Çöz</span></button>
-            <button type="button" id="nav-coach" class="nav-coach"><span class="nav-ico">🧠</span><span>Koç</span></button>
-            <button type="button" id="nav-archive"><span class="nav-ico">📁</span><span>Arşivim</span></button>
-            <button type="button" id="nav-pdf"><span class="nav-ico">📄</span><span>PDF</span></button>
-            <button type="button" id="nav-premium"><span class="nav-ico">💎</span><span>Premium</span></button>
-        </nav>
-        <footer class="credit">Designed and developed by <strong>Emin Acar</strong></footer>
+            <footer class="credit">Designed and developed by <strong>Emin Acar</strong></footer>
+        </main>
     </div>
-    <div class="toast hidden" id="toast" role="status" aria-live="polite"></div>
+
+    <div class="toast hidden" id="toast"></div>
     <script src="/static/app.js"></script>
 </body>
 </html>

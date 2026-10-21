@@ -28,7 +28,6 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 api_key = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=api_key) if api_key else None
 
-# YKS MENTOR KİŞİLİĞİ
 ABI_SYSTEM = (
     "Sen 'YKS Mentor'sun: Üniversite sınavına (YKS) hazırlanan lise son sınıf ve mezun öğrencilere yardım eden, deneyimli, akademik ve stratejik bir eğitmensin. "
     "Öğrencilere 'kardeşim' gibi samimi ama 'hocam/öğrencim' ciddiyetinde hitap et. "
@@ -44,7 +43,6 @@ COACH_SYSTEM = (
     "Somut verilerle konuş, abartıdan kaçın. Plan hazırlarken öğrencinin hedef bölümünü ve mevcut netlerini sor."
 )
 
-# --- VERİTABANI KURULUMU ---
 def db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -70,7 +68,6 @@ def init_db():
 
 init_db()
 
-# --- YARDIMCILAR ---
 def get_client_ip(request: Request):
     forwarded = request.headers.get("X-Forwarded-For")
     if forwarded:
@@ -125,20 +122,18 @@ def ask_ai(system: str, contents: list, max_tokens: int = 4096) -> str:
         raise HTTPException(500, "Sunucuda GEMINI_API_KEY ayarlanmamış.")
     try:
         response = client.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-1.5-flash', # 502 hatasını çözmek için en stabil model
             config=types.GenerateContentConfig(
                 system_instruction=system,
                 max_output_tokens=max_tokens,
-                temperature=0.6, # Biraz daha az yaratıcı, daha analitik
+                temperature=0.6,
             ),
             contents=contents
         )
-        if response.candidates and response.candidates[0].finish_reason == "MAX_TOKENS":
-            return response.text + "\n\n*(Not: Cevap çok uzun olduğu için burada kesildi.)*"
         return response.text
     except Exception as exc:
         print(f"Yapay zeka hatası: {exc}")
-        raise HTTPException(502, "Yapay zeka şu an cevap veremiyor. Biraz sonra tekrar dene.")
+        raise HTTPException(502, f"Sistem Hatası: {str(exc)}")
 
 def prepare_image(raw: bytes) -> bytes:
     try:
@@ -167,7 +162,6 @@ class CoachIn(BaseModel):
     history: list[ChatTurn] = Field(default_factory=list)
     profile: dict = Field(default_factory=dict)
 
-# --- UÇ NOKTALAR ---
 @app.get("/")
 def index():
     return FileResponse(TEMPLATES_DIR / "index.html")
@@ -192,36 +186,29 @@ async def solve(request: Request, file: UploadFile = File(...), subject: str = F
     if not check_and_update_quota(ip):
         raise HTTPException(403, "Günlük soru hakkınız doldu. Sınırsız çözüm için Premium'a geçebilirsiniz.")
         
-    try: # HATA YAKALAMA BURADA BAŞLIYOR
-        subject = subject if subject in SUBJECTS else "Genel"
-        raw = await file.read()
-        if not raw: raise HTTPException(400, "Boş dosya.")
-        
-        jpeg = prepare_image(raw)
-        b64 = base64.b64encode(jpeg).decode()
-
-        prompt = f"Ders: {subject}."
-        if note.strip(): prompt += f"\nÖğrencinin notu: {note.strip()[:1000]}"
-        prompt += "\nFotoğraftaki soruyu YKS formatında çöz ve taktik ver."
-
-        image_part = types.Part.from_bytes(data=jpeg, mime_type="image/jpeg")
-        
-        # Yapay zekayı çağırıyoruz
-        answer = ask_ai(ABI_SYSTEM, contents=[image_part, prompt])
-
-        with closing(db()) as conn:
-            conn.execute(
-                "INSERT INTO history (subject, image, answer, created_at) VALUES (?, ?, ?, ?)",
-                (subject, b64, answer, datetime.now(timezone.utc).isoformat()),
-            )
-            conn.commit()
-
-        return {"answer": answer}
+    subject = subject if subject in SUBJECTS else "Genel"
+    raw = await file.read()
+    if not raw: raise HTTPException(400, "Boş dosya.")
     
-    except Exception as e: # HATA YAKALAMA BURADA BİTİYOR
-        print(f"KRİTİK HATA: {e}")
-        # Hatanın detayını doğrudan ekrana gönderiyoruz
-        return {"answer": f"⚠️ SİSTEM HATASI: {str(e)}"}
+    jpeg = prepare_image(raw)
+    b64 = base64.b64encode(jpeg).decode()
+
+    prompt = f"Ders: {subject}."
+    if note.strip(): prompt += f"\nÖğrencinin notu: {note.strip()[:1000]}"
+    prompt += "\nFotoğraftaki soruyu YKS formatında çöz ve taktik ver."
+
+    image_part = types.Part.from_bytes(data=jpeg, mime_type="image/jpeg")
+    answer = ask_ai(ABI_SYSTEM, contents=[image_part, prompt])
+
+    with closing(db()) as conn:
+        conn.execute(
+            "INSERT INTO history (subject, image, answer, created_at) VALUES (?, ?, ?, ?)",
+            (subject, b64, answer, datetime.now(timezone.utc).isoformat()),
+        )
+        conn.commit()
+
+    return {"answer": answer}
+
 @app.post("/followup")
 async def followup(body: FollowupIn, request: Request):
     ip = get_client_ip(request)

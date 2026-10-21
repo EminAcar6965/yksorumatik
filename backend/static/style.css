@@ -148,3 +148,88 @@ main{flex:1;position:relative;overflow:hidden}
 .modal{position:fixed;inset:0;z-index:1500;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:20px}
 .modal-box{background:var(--bg2);border:1px solid var(--glass-border);border-radius:20px;padding:24px;max-width:380px;width:100%;text-align:center}
 .modal-box h3{margin:6px 0}
+/* --- YENİ AYARLAR SAYFASI TASARIMI --- */
+.settings-container {
+    padding: 16px;
+    padding-bottom: 80px;
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100vh - 60px);
+}
+.view-title {
+    font-size: 24px;
+    font-weight: 800;
+    margin-bottom: 16px;
+    color: var(--text-main);
+}
+.settings-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.setting-item {
+    display: flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 16px;
+    padding: 16px;
+    cursor: pointer;
+    transition: background 0.2s;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.setting-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+.setting-icon {
+    font-size: 22px;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    margin-right: 16px;
+    flex-shrink: 0;
+}
+.setting-content {
+    flex: 1;
+}
+.setting-title {
+    font-weight: 700;
+    font-size: 16px;
+    margin-bottom: 4px;
+    color: var(--text-main);
+}
+.setting-desc {
+    font-size: 13px;
+    color: var(--text-muted);
+}
+.setting-arrow {
+    font-size: 22px;
+    color: var(--text-muted);
+}
+.footer-credit {
+    margin-top: auto;
+    text-align: center;
+    padding-top: 40px;
+}
+.credit-line {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
+    margin-bottom: 16px;
+}
+.footer-credit p {
+    margin: 4px 0;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+.footer-credit strong {
+    color: var(--text-main);
+}
+.footer-credit .company-name {
+    font-weight: 800;
+    color: var(--neon-blue);
+    font-size: 15px;
+    letter-spacing: 0.5px;
+}

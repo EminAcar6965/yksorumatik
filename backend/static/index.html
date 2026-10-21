@@ -20,7 +20,7 @@
   </header>
 
   <main>
-    <!-- 1) PANELİM (Odaklan buraya taşındı) -->
+    <!-- 1) PANELİM -->
     <section class="view active" id="view-panel">
       <div class="glass-card hero">
         <h2 id="greeting-text">Merhaba! 👋</h2>
@@ -73,7 +73,6 @@
         <div id="coach-note" class="coach-note hidden"></div>
       </div>
 
-      <!-- Odaklan (Pomodoro) Kısmı -->
       <div class="glass-card focus-card">
         <div class="card-title">⏱️ Odaklan</div>
         <div class="chips" id="dur-chips">
@@ -116,7 +115,7 @@
       </div>
     </section>
 
-    <!-- 3) KOÇ (Kartlar artırıldı) -->
+    <!-- 3) KOÇ -->
     <section class="view chat-view" id="view-coach">
       <div class="coach-head">
         <button id="coach-back" class="round-btn" type="button">←</button>
@@ -166,26 +165,69 @@
       <div id="archive-list"></div>
     </section>
 
-    <!-- 5) AYARLAR (Sekmeli Yapı) -->
+    <!-- 5) AYARLAR (Yeni Liste Tasarımı) -->
     <section class="view" id="view-settings">
-      <div class="glass-card hero">
-        <h2>⚙️ Ayarlar</h2>
-      </div>
-      
-      <!-- Sekmeler -->
-      <div class="cat-row" style="margin-bottom: 14px;">
-        <button class="cat-btn active" id="tab-btn-account" type="button">Hesap</button>
-        <button class="cat-btn" id="tab-btn-premium" type="button">Premium</button>
-      </div>
+      <div class="settings-container">
+        <h1 class="view-title">Ayarlar</h1>
+        
+        <div class="settings-list">
+          <!-- Hesap -->
+          <div class="setting-item" id="setting-account">
+            <div class="setting-icon">👤</div>
+            <div class="setting-content">
+              <div class="setting-title">Hesap</div>
+              <div class="setting-desc" id="account-desc">Giriş yap veya kayıt ol</div>
+            </div>
+            <div class="setting-arrow">›</div>
+          </div>
 
-      <!-- Hesap Sekmesi İçeriği -->
-      <div id="settings-tab-account">
-        <!-- JS ile doldurulacak -->
-      </div>
+          <!-- Premium -->
+          <div class="setting-item" id="setting-premium">
+            <div class="setting-icon">💎</div>
+            <div class="setting-content">
+              <div class="setting-title">Premium</div>
+              <div class="setting-desc" id="premium-desc">Sınırsız soru çözümü</div>
+            </div>
+            <div class="setting-arrow">›</div>
+          </div>
 
-      <!-- Premium Sekmesi İçeriği -->
-      <div id="settings-tab-premium" class="hidden">
-        <!-- JS ile doldurulacak -->
+          <!-- Öneri & Şikayet -->
+          <a href="https://wa.me/905555555555" target="_blank" class="setting-item" style="text-decoration:none; color:inherit;">
+            <div class="setting-icon">💡</div>
+            <div class="setting-content">
+              <div class="setting-title">Öneri & Şikayet</div>
+              <div class="setting-desc">WhatsApp ile iletişime geç</div>
+            </div>
+            <div class="setting-arrow">›</div>
+          </a>
+
+          <!-- Yapımcı Hakkında -->
+          <div class="setting-item" id="setting-about">
+            <div class="setting-icon">👨‍💻</div>
+            <div class="setting-content">
+              <div class="setting-title">Yapımcı Hakkında</div>
+              <div class="setting-desc">Emin Acar · Yapımcı & Geliştirici</div>
+            </div>
+            <div class="setting-arrow">›</div>
+          </div>
+
+          <!-- Sorumatik AIlesi -->
+          <div class="setting-item" id="setting-family">
+            <div class="setting-icon">🚀</div>
+            <div class="setting-content">
+              <div class="setting-title">Sorumatik AIlesi</div>
+              <div class="setting-desc">Topluluğumuza katıl</div>
+            </div>
+            <div class="setting-arrow">›</div>
+          </div>
+        </div>
+
+        <!-- Alt Bilgi (Footer) -->
+        <div class="footer-credit">
+          <div class="credit-line"></div>
+          <p>Designed & Developed by <strong>Emin Acar</strong></p>
+          <p class="company-name">Sorumatik</p>
+        </div>
       </div>
     </section>
   </main>
@@ -199,28 +241,43 @@
   </nav>
 </div>
 
-<!-- Tam ekran saat -->
-<div id="pomo-full" class="pomo-full hidden">
-  <div class="pomo-full-label">Odaklan 🎯</div>
-  <div class="pomo-full-time" id="pomo-full-time">25:00</div>
-  <div class="btn-row">
-    <button id="pomo-full-toggle" class="primary-btn" type="button">Duraklat</button>
-    <button id="pomo-full-close" class="ghost-btn" type="button">Küçült</button>
-  </div>
-</div>
-
-<!-- Premium modal (PDF için uyarı) -->
-<div id="premium-modal" class="modal hidden">
+<!-- Hesap Yönetimi Modal -->
+<div id="account-manage-modal" class="modal hidden">
   <div class="modal-box">
-    <div style="font-size:42px">🔒</div>
-    <h3>PDF indirme Premium'a özel</h3>
-    <p class="muted">Arşivindeki sorulardan PDF deneme oluşturmak için Premium üye olmalısın.</p>
-    <button id="modal-go-premium" class="primary-btn full" type="button">Premium'a Git 💎</button>
-    <button id="modal-close" class="ghost-btn full" type="button">Şimdi değil</button>
+    <h3>Hesap Yönetimi</h3>
+    <p class="small" style="margin-top:10px;"><strong>E-posta:</strong> <span id="acc-modal-email"></span></p>
+    <div style="display:flex; flex-direction:column; gap:8px; margin-top:20px;">
+      <button id="acc-logout-btn" class="ghost-btn full">Çıkış Yap</button>
+      <button id="acc-delete-btn" class="ghost-btn full" style="border-color:var(--coral); color:var(--coral);">Hesabı Sil</button>
+      <button id="acc-close-btn" class="primary-btn full">Kapat</button>
+    </div>
   </div>
 </div>
 
-<!-- Auth modal -->
+<!-- Premium Plans Modal -->
+<div id="premium-plans-modal" class="modal hidden">
+  <div class="modal-box" style="max-width: 450px; text-align:left;">
+    <h3 style="text-align:center;">Sınırsız Erişim 💎</h3>
+    <p class="muted small" style="text-align:center; margin-bottom:15px;" id="premium-modal-desc">Limitleri kaldır, potansiyelini açığa çıkar.</p>
+    
+    <div id="premium-plans-content">
+       <!-- JS ile doldurulacak -->
+    </div>
+    
+    <button id="prem-close-btn" class="ghost-btn full" style="margin-top:15px;">Kapat</button>
+  </div>
+</div>
+
+<!-- Bilgi Modalı (Yapımcı, Aile vb.) -->
+<div id="info-modal" class="modal hidden">
+  <div class="modal-box">
+    <h3 id="info-title"></h3>
+    <p id="info-content" class="small muted" style="margin:15px 0; line-height:1.5;"></p>
+    <button id="info-close-btn" class="primary-btn full">Tamam</button>
+  </div>
+</div>
+
+<!-- Auth Modal -->
 <div id="auth-modal" class="modal hidden">
   <div class="modal-box" style="max-width: 400px;">
     <h3 id="auth-title">Giriş Yap</h3>

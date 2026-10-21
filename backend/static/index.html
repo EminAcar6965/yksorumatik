@@ -15,7 +15,8 @@
   <header class="topbar">
     <div class="brand">🧠 <span>YKS Sorumatik</span></div>
     <div style="display:flex; gap:8px; align-items:center;">
-      <button id="quota-chip" class="quota-chip" type="button"><span id="quota-text">…</span></button>
+      <!-- SAĞ ÜSTTEKİ 3 NOKTA YERİNE HAK SAYISI -->
+      <button id="quota-chip" class="quota-chip" type="button"><span id="quota-text">Yükleniyor...</span></button>
     </div>
   </header>
 
@@ -127,12 +128,15 @@
           <h3 style="margin:0 0 4px">Koçuna ne danışmak istersin?</h3>
         </div>
         <div class="quick-grid">
+          <!-- 2 KART DAHA EKLENDİ -->
           <button class="quick-btn" type="button" data-prompt="Bugün hangi konulara çalışmalıyım? Kısa bir plan çıkar."><span>📅</span>Bugün ne çalışayım?</button>
           <button class="quick-btn" type="button" data-prompt="Bana bir haftalık gerçekçi YKS çalışma programı hazırla."><span>🗓️</span>Haftalık program</button>
           <button class="quick-btn" type="button" data-prompt="Netlerimi hızlı artırmak için ne yapmalıyım?"><span>📈</span>Netlerimi artır</button>
           <button class="quick-btn" type="button" data-prompt="Sınav kaygısıyla nasıl başa çıkarım?"><span>😰</span>Sınav kaygısı</button>
           <button class="quick-btn" type="button" data-prompt="Deneme sınavında süre yönetimi ve soru atlama stratejisi nasıl olmalı?"><span>⏱️</span>Deneme stratejisi</button>
           <button class="quick-btn" type="button" data-prompt="Etkili tekrar nasıl yapılır? Aralıklı tekrar ve aktif hatırlama yöntemini anlat."><span>🧠</span>Etkili tekrar</button>
+          <button class="quick-btn" type="button" data-prompt="Yanlış yaptığım soruları nasıl analiz etmeliyim? Hata defteri yöntemi anlat."><span>📓</span>Hata defteri</button>
+          <button class="quick-btn" type="button" data-prompt="Motivasyonum düştü, çalışmaya devam etmem için bana destek ol."><span>💪</span>Motivasyon ver</button>
         </div>
       </div>
 
@@ -346,9 +350,8 @@
     <button class="nav-item" data-tab="archive" type="button"><span>🗂️</span>Arşiv</button>
     <button class="nav-item" data-tab="settings" type="button"><span>⚙️</span>Ayarlar</button>
   </nav>
-</div> <!-- app div bitişi -->
+</div>
 
-<!-- Footer artık en altta, app div'inin dışında -->
 <footer class="footer-credit">
     <p>Designed & Developed by <strong>Emin Acar</strong></p>
     <p class="company-name">Sorumatik</p>
@@ -385,8 +388,9 @@
       <button id="btn-send-code" class="ghost-btn" type="button" style="padding:11px 12px; font-size:12px;">Kod Al</button>
     </div>
 
+    <!-- PLACEHOLDER DEĞİŞTİ: Kod giriniz (varsa) -->
     <div id="auth-referral-wrap" class="hidden">
-      <input id="auth-referral" class="text-input" type="text" placeholder="HOSGELDINYKS">
+      <input id="auth-referral" class="text-input" type="text" placeholder="Kod giriniz (varsa)">
     </div>
 
     <button id="auth-submit" class="primary-btn full">Giriş Yap</button>

@@ -1,3 +1,4 @@
+
 'use strict';
 
 const $ = (id) => document.getElementById(id);
@@ -15,9 +16,9 @@ const store = {
     set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { } },
 };
 
-// TYT Tarihini otomatik ayarla (Kullanıcı girmeyecek)
+// TYT Tarihini otomatik ayarla
 if (!store.get('yks_exam')) {
-    store.set('yks_exam', '2027-06-19'); // 2027 TYT Varsayılan Tarihi
+    store.set('yks_exam', '2027-06-19'); 
 }
 
 let authToken = localStorage.getItem('yks_token') || null;
@@ -30,7 +31,7 @@ function todayKey(d = new Date()) { return `${d.getFullYear()}-${String(d.getMon
 let toastTimer;
 function showToast(message) {
     const el = $('toast'); el.textContent = message; el.classList.remove('hidden');
-    clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.add('hidden'), 3200);
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.add('hidden'), 3500);
 }
 function renderMath(el) { if (typeof renderMathInElement === 'function') renderMathInElement(el, MATH_OPTIONS); }
 function scrollEnd(container) { if (container) requestAnimationFrame(() => { container.scrollTop = container.scrollHeight; }); }
@@ -91,8 +92,13 @@ async function fetchStatus() {
 
 function updateUI() {
     const text = $('quota-text');
-    if (userStatus.is_premium) { text.textContent = 'Sınırsız 💎'; text.style.color = 'var(--neon-blue)'; } 
-    else { text.innerHTML = `Kalan Hak: <strong>${userStatus.remaining}</strong>`; text.style.color = userStatus.remaining === 0 ? 'var(--coral)' : 'var(--accent)'; }
+    // Sağ üstteki 3 nokta yerine direkt kalan hakkı yazdırıyoruz
+    if (userStatus.is_premium) { 
+        text.textContent = 'Sınırsız 💎'; text.style.color = 'var(--neon-blue)'; 
+    } else { 
+        text.innerHTML = `Kalan Hak: <strong>${userStatus.remaining}</strong>`; 
+        text.style.color = userStatus.remaining === 0 ? 'var(--coral)' : 'var(--accent)'; 
+    }
     
     const h = new Date().getHours();
     const part = h < 6 ? 'İyi geceler' : h < 12 ? 'Günaydın' : h < 18 ? 'İyi günler' : 'İyi akşamlar';
@@ -108,7 +114,10 @@ function updateUI() {
         $('premium-desc').style.color = userStatus.is_premium ? 'var(--neon-blue)' : 'var(--text-muted)';
     }
 
-    if ($('my-referral-code')) $('my-referral-code').textContent = userStatus.referral_code || '-------';
+    // Davet kodunu ekrana yazdır (Hala KOD yazıyorsa buraya bak)
+    if ($('my-referral-code')) {
+        $('my-referral-code').textContent = userStatus.referral_code || 'KOD-YOK';
+    }
     
     if(userStatus.email) loadAnalytics();
 }

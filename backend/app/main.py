@@ -143,9 +143,10 @@ def send_code(body: AuthIn):
     if not email or "@" not in email: raise HTTPException(400, "Geçerli bir e-posta girin.")
     code = ''.join(random.choices(string.digits, k=6)); expires = int(time.time()) + 300
     
-    # Hata vermemesi için try-except ile sarıyoruz
     try:
-        supabase.table("verification_codes").upsert({"email": email, "code": code, "expires_at": expires}).execute()
+        # Önce varsa eski kodu sil, sonra yenisini ekle (Upsert yerine daha garanti)
+        supabase.table("verification_codes").delete().eq("email", email).execute()
+        supabase.table("verification_codes").insert({"email": email, "code": code, "expires_at": expires}).execute()
     except Exception as e:
         print(f"Supabase Kod Kayıt Hatası: {e}")
         
@@ -154,41 +155,46 @@ def send_code(body: AuthIn):
 
 @app.post("/api/register")
 def register(body: AuthIn):
-    email = body.email.strip().lower(); name = (body.name or "").strip(); code = (body.code or "").strip()
-    if len(body.password) < 4: raise HTTPException(400, "Şifre en az 4 karakter olmalı.")
-    if not name: raise HTTPException(400, "Lütfen adınızı girin.")
-    
-    vc = supabase.table("verification_codes").select("*").eq("email", email).execute()
-    if not vc.data or vc.data[0]["code"] != code or vc.data[0]["expires_at"] < time.time():
-        raise HTTPException(400, "Doğrulama kodu hatalı veya süresi geçmiş.")
+    try:
+        email = body.email.strip().lower(); name = (body.name or "").strip(); code = (body.code or "").strip()
+        if len(body.password) < 4: raise HTTPException(400, "Şifre en az 4 karakter olmalı.")
+        if not name: raise HTTPException(400, "Lütfen adınızı girin.")
+        
+        vc = supabase.table("verification_codes").select("*").eq("email", email).execute()
+        if not vc.data or vc.data[0]["code"] != code or vc.data[0]["expires_at"] < time.time():
+            raise HTTPException(400, "Doğrulama kodu hatalı veya süresi geçmiş.")
 
-    existing = supabase.table("users").select("*").eq("email", email).execute()
-    if existing.data and len(existing.data) > 0: raise HTTPException(400, "Bu e-posta zaten kayıtlı.")
+        existing = supabase.table("users").select("*").eq("email", email).execute()
+        if existing.data and len(existing.data) > 0: raise HTTPException(400, "Bu e-posta zaten kayıtlı.")
 
-    uid = uuid.uuid4().hex; role = "admin" if os.getenv("ADMIN_EMAIL", "").lower() == email else "user"
-    ref_code = uid[:8].upper()
-    
-    new_user = {"uid": uid, "email": email, "password_hash": hash_password(body.password), "name": name, "created_at": datetime.now(timezone.utc).isoformat(), "role": role, "referral_code": ref_code, "bonus_quota": 0}
-    
-    # DAVET SİSTEMİ KONTROLÜ
-    ref_code_input = (body.referral_code or "").strip().upper()
-    if ref_code_input == "HOSGELDINYKS":
-        new_user["bonus_quota"] = 3
-        new_user["premium_until"] = int(time.time() + 86400) # 1 gün premium
-    elif ref_code_input:
-        ref_res = supabase.table("users").select("*").eq("referral_code", ref_code_input).execute()
-        if ref_res.data and len(ref_res.data) > 0:
-            inviter = ref_res.data[0]
-            inviter_premium = max(time.time(), inviter.get("premium_until") or 0) + 86400
-            supabase.table("users").update({"premium_until": int(inviter_premium)}).eq("uid", inviter["uid"]).execute()
+        uid = uuid.uuid4().hex; role = "admin" if os.getenv("ADMIN_EMAIL", "").lower() == email else "user"
+        ref_code = uid[:8].upper()
+        
+        new_user = {"uid": uid, "email": email, "password_hash": hash_password(body.password), "name": name, "created_at": datetime.now(timezone.utc).isoformat(), "role": role, "referral_code": ref_code, "bonus_quota": 0}
+        
+        # DAVET SİSTEMİ KONTROLÜ
+        ref_code_input = (body.referral_code or "").strip().upper()
+        if ref_code_input == "HOSGELDINYKS":
             new_user["bonus_quota"] = 3
-            new_user["referred_by"] = inviter["uid"]
+            new_user["premium_until"] = int(time.time() + 86400)
+        elif ref_code_input:
+            ref_res = supabase.table("users").select("*").eq("referral_code", ref_code_input).execute()
+            if ref_res.data and len(ref_res.data) > 0:
+                inviter = ref_res.data[0]
+                inviter_premium = max(time.time(), inviter.get("premium_until") or 0) + 86400
+                supabase.table("users").update({"premium_until": int(inviter_premium)}).eq("uid", inviter["uid"]).execute()
+                new_user["bonus_quota"] = 3
+                new_user["referred_by"] = inviter["uid"]
 
-    supabase.table("users").insert(new_user).execute()
-    supabase.table("verification_codes").delete().eq("email", email).execute()
-    
-    token = create_token(uid, email, role)
-    return {"token": token, "uid": uid, "role": role, "name": name}
+        supabase.table("users").insert(new_user).execute()
+        supabase.table("verification_codes").delete().eq("email", email).execute()
+        
+        token = create_token(uid, email, role)
+        return {"token": token, "uid": uid, "role": role, "name": name}
+    except Exception as e:
+        print(f"KAYIT HATASI: {str(e)}")
+        # Hatayı frontend'e detaylı gönder ki kullanıcı ne olduğunu anlasın
+        raise HTTPException(500, f"Sunucu Hatası: {str(e)}")
 
 @app.post("/api/login")
 def login(body: AuthIn):

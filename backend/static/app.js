@@ -15,10 +15,7 @@ const store = {
     set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { } },
 };
 
-// TYT Tarihini otomatik ayarla
-if (!store.get('yks_exam')) {
-    store.set('yks_exam', '2027-06-19'); 
-}
+if (!store.get('yks_exam')) store.set('yks_exam', '2027-06-19'); 
 
 let authToken = localStorage.getItem('yks_token') || null;
 function authHeaders() { return authToken ? { 'Authorization': `Bearer ${authToken}` } : {}; }
@@ -73,39 +70,50 @@ function compressImage(file, maxSide = 1600, quality = 0.85) {
     });
 }
 
+// ---------- SESLİ OKUMA ----------
+let currentUtterance = null;
+window.toggleSpeak = function(btn) {
+    const isReading = btn.dataset.reading === 'true';
+    window.speechSynthesis.cancel(); // Her zaman mevcut sesi durdur
+
+    if (isReading) {
+        // Susturma işlemi
+        document.querySelectorAll('.read-aloud-btn').forEach(b => {
+            b.innerHTML = '🔊'; b.dataset.reading = 'false'; b.style.color = 'var(--text-muted)';
+        });
+        return;
+    }
+
+    // Yeni okuma başlat
+    const text = btn.parentElement.innerText.replace('🔊', '').replace('⏹️', '').trim();
+    if (!text) return;
+
+    currentUtterance = new SpeechSynthesisUtterance(text);
+    currentUtterance.lang = 'tr-TR';
+    
+    currentUtterance.onend = () => {
+        btn.innerHTML = '🔊'; btn.dataset.reading = 'false'; btn.style.color = 'var(--text-muted)';
+    };
+
+    window.speechSynthesis.speak(currentUtterance);
+    btn.innerHTML = '⏹️ Durdur'; btn.dataset.reading = 'true'; btn.style.color = 'var(--coral)';
+};
+
 // ---------- KULLANICI DURUMU ----------
 let userStatus = { is_premium: false, remaining: 3, email: '', name: '', role: 'user', referral_code: '' };
-
-function applyStatus(data) {
-    if (!data) return;
-    Object.assign(userStatus, data);
-    updateUI();
-}
-
+function applyStatus(data) { if (!data) return; Object.assign(userStatus, data); updateUI(); }
 async function fetchStatus() {
     try {
         const res = await fetch('/api/status', { headers: authHeaders() });
-        if (res.ok) {
-            const data = await res.json();
-            applyStatus(data);
-        } else {
-            // API hata verse bile arayüzün "Yükleniyor"da kalmasını engelle
-            $('quota-text').textContent = 'Bağlantı Hatası'; 
-        }
-    } catch (e) { 
-        console.error("Durum çekilemedi:", e); 
-        $('quota-text').textContent = 'Bağlantı Hatası';
-    }
+        if (res.ok) applyStatus(await res.json());
+        else $('quota-text').textContent = 'Bağlantı Hatası'; 
+    } catch (e) { $('quota-text').textContent = 'Bağlantı Hatası'; }
 }
 
 function updateUI() {
     const text = $('quota-text');
-    if (userStatus.is_premium) { 
-        text.textContent = 'Sınırsız 💎'; text.style.color = 'var(--neon-blue)'; 
-    } else { 
-        text.innerHTML = `Kalan Hak: <strong>${userStatus.remaining}</strong>`; 
-        text.style.color = userStatus.remaining === 0 ? 'var(--coral)' : 'var(--accent)'; 
-    }
+    if (userStatus.is_premium) { text.textContent = 'Sınırsız 💎'; text.style.color = 'var(--neon-blue)'; } 
+    else { text.innerHTML = `Kalan Hak: <strong>${userStatus.remaining}</strong>`; text.style.color = userStatus.remaining === 0 ? 'var(--coral)' : 'var(--accent)'; }
     
     const h = new Date().getHours();
     const part = h < 6 ? 'İyi geceler' : h < 12 ? 'Günaydın' : h < 18 ? 'İyi günler' : 'İyi akşamlar';
@@ -115,81 +123,79 @@ function updateUI() {
         $('account-desc').textContent = userStatus.email ? userStatus.email : 'Giriş yap veya kayıt ol';
         $('account-desc').style.color = userStatus.email ? 'var(--accent)' : 'var(--text-muted)';
     }
-    
     if ($('premium-desc')) {
         $('premium-desc').textContent = userStatus.is_premium ? 'Premium Aktif 💎' : 'Sınırsız soru çözümü';
         $('premium-desc').style.color = userStatus.is_premium ? 'var(--neon-blue)' : 'var(--text-muted)';
     }
-
-    // Davet kodunu ekrana yazdır (Hala KOD yazıyorsa buraya bak)
-    if ($('my-referral-code')) {
-        $('my-referral-code').textContent = userStatus.referral_code || 'KOD-YOK';
-    }
-    
+    if ($('my-referral-code')) $('my-referral-code').textContent = userStatus.referral_code || 'KOD-YOK';
     if(userStatus.email) loadAnalytics();
 }
 
-// ---------- ANALİZ ----------
+// ---------- ANALİZ (Gelişmiş) ----------
 async function loadAnalytics() {
-    if (!$('analytics-content')) return;
+    const el = $('analytics-content'); if (!el) return;
+    if (!userStatus.email) {
+        el.innerHTML = `<div style="text-align: center; padding: 10px 0;"><p style="margin-bottom: 12px;">Zayıf noktalarını görmek için lütfen giriş yap.</p><button id="analytics-login-btn" class="primary-btn" style="padding: 8px 16px;">Giriş Yap</button></div>`;
+        $('analytics-login-btn')?.addEventListener('click', openAuthModal); return;
+    }
     try {
         const res = await fetch('/api/analytics', { headers: authHeaders() });
         const data = await res.json();
-        if (data.total === 0) { $('analytics-content').innerHTML = "Henüz analiz edilecek soru yok. Bir soru çözerek başla!"; return; }
+        if (data.total === 0) { el.innerHTML = "Henüz analiz edilecek soru yok. Bir soru çözerek başla!"; return; }
         
-        let html = `<div style="margin-bottom:8px;">Toplam Çözülen: <strong>${data.total}</strong></div>`;
+        let html = `<div style="margin-bottom:16px; font-size:15px;">Toplam Çözülen: <strong>${data.total}</strong></div>`;
+        const sortedSub = Object.entries(data.subjects || {}).sort((a,b)=>b[1]-a[1]);
         
-        const sortedSub = Object.entries(data.subjects).sort((a,b)=>b[1]-a[1]);
-        html += `<div style="margin-bottom:8px;"><strong>Ders Dağılımı:</strong><br>`;
-        sortedSub.forEach(([sub, count]) => { html += `<span style="display:inline-block; background:rgba(255,255,255,0.1); padding:4px 8px; border-radius:6px; margin:2px;">${sub}: ${count}</span> `; });
+        html += `<div style="display:flex; flex-direction:column; gap:10px;">`;
+        sortedSub.forEach(([sub, count]) => {
+            const percent = Math.round((count / data.total) * 100);
+            const icon = sub.includes('Mat') ? '📐' : sub.includes('Tür') ? '📚' : sub.includes('Fen') ? '🔬' : '🌍';
+            html += `
+                <div class="analytics-row">
+                    <div class="analytics-header"><span>${icon} ${sub}</span><span>%${percent}</span></div>
+                    <div class="analytics-bar-bg"><div class="analytics-bar-fill" style="width:${percent}%"></div></div>
+                </div>`;
+        });
         html += `</div>`;
-        
-        $('analytics-content').innerHTML = html;
-    } catch(e) { console.error(e); }
+
+        const sortedTopics = Object.entries(data.topics || {}).sort((a,b)=>b[1]-a[1]).slice(0, 5);
+        if(sortedTopics.length > 0) {
+            html += `<div style="margin-top:16px; font-size:13px; font-weight:600;">Çalıştığın Konular:</div>`;
+            html += `<div class="analytics-tags">`;
+            sortedTopics.forEach(([topic, count]) => { html += `<div class="analytics-tag">${topic} (${count})</div>`; });
+            html += `</div>`;
+        }
+
+        const mainSub = sortedSub[0] ? sortedSub[0][0] : '';
+        let tip = "Harika gidiyorsun! Düzenli çalışmaya devam et. 🚀";
+        if (sortedSub.length > 1) tip = `En çok ${mainSub} üzerinde durmuşsun. Diğer derslere de ağırlık vermeyi unutma. 💪`;
+        html += `<div class="analytics-tip">💡 ${tip}</div>`;
+
+        el.innerHTML = html;
+    } catch(e) { el.innerHTML = "Analiz yüklenemedi."; }
 }
 
 // ---------- AUTH MODAL ----------
 let authMode = 'login';
-function openAuthModal() {
-    authMode = 'login'; toggleAuthModeUI();
-    $('auth-email').value = ''; $('auth-password').value = ''; $('auth-name').value = ''; $('auth-code').value = ''; $('auth-referral').value = '';
-    $('auth-modal').classList.remove('hidden');
-}
-function toggleAuthModeUI() {
-    const isReg = authMode === 'register';
-    $('auth-title').textContent = isReg ? 'Kayıt Ol' : 'Giriş Yap';
-    $('auth-submit').textContent = isReg ? 'Kayıt Ol' : 'Giriş Yap';
-    $('auth-switch').textContent = isReg ? 'Zaten hesabın var mı? Giriş Yap' : 'Hesabın yok mu? Kayıt Ol';
-    $('auth-register-fields').classList.toggle('hidden', !isReg);
-    $('auth-password-confirm-wrap').classList.toggle('hidden', !isReg);
-    $('auth-code-wrap').classList.toggle('hidden', !isReg);
-    if($('auth-referral-wrap')) $('auth-referral-wrap').classList.toggle('hidden', !isReg);
-}
+function openAuthModal() { authMode = 'login'; toggleAuthModeUI(); $('auth-email').value = ''; $('auth-password').value = ''; $('auth-name').value = ''; $('auth-code').value = ''; $('auth-referral').value = ''; $('auth-modal').classList.remove('hidden'); }
+function toggleAuthModeUI() { const isReg = authMode === 'register'; $('auth-title').textContent = isReg ? 'Kayıt Ol' : 'Giriş Yap'; $('auth-submit').textContent = isReg ? 'Kayıt Ol' : 'Giriş Yap'; $('auth-switch').textContent = isReg ? 'Zaten hesabın var mı? Giriş Yap' : 'Hesabın yok mu? Kayıt Ol'; $('auth-register-fields').classList.toggle('hidden', !isReg); $('auth-password-confirm-wrap').classList.toggle('hidden', !isReg); $('auth-code-wrap').classList.toggle('hidden', !isReg); if($('auth-referral-wrap')) $('auth-referral-wrap').classList.toggle('hidden', !isReg); }
 $('auth-close').addEventListener('click', () => $('auth-modal').classList.add('hidden'));
 $('auth-switch').addEventListener('click', () => { authMode = authMode === 'login' ? 'register' : 'login'; toggleAuthModeUI(); });
 
 $('btn-send-code').addEventListener('click', async () => {
-    const email = $('auth-email').value.trim();
-    if (!email) { showToast('Önce e-posta girin.'); return; }
-    try { 
-        const res = await postJson('/api/send-code', { email, password: "dummy" }); 
-        showToast(res.message || 'Doğrulama kodu gönderildi!'); 
-    } catch (err) { 
-        showToast(err.message); 
-    }
+    const email = $('auth-email').value.trim(); if (!email) { showToast('Önce e-posta girin.'); return; }
+    try { const res = await postJson('/api/send-code', { email, password: "dummy" }); showToast(res.message || 'Doğrulama kodu gönderildi!'); } catch (err) { showToast(err.message); }
 });
 
 $('auth-submit').addEventListener('click', async () => {
-    const email = $('auth-email').value.trim();
-    const password = $('auth-password').value;
+    const email = $('auth-email').value.trim(); const password = $('auth-password').value;
     if (!email || !password) { showToast('E-posta ve şifre gerekli.'); return; }
     try {
         if (authMode === 'login') {
             const data = await postJson('/api/login', { email, password });
             if (data.token) { authToken = data.token; localStorage.setItem('yks_token', authToken); $('auth-modal').classList.add('hidden'); await fetchStatus(); showToast('Giriş yapıldı! 👋'); switchTab('settings'); }
         } else {
-            const name = $('auth-name').value.trim(); const code = $('auth-code').value.trim(); const passConfirm = $('auth-password-confirm').value;
-            const refCode = $('auth-referral') ? $('auth-referral').value.trim() : '';
+            const name = $('auth-name').value.trim(); const code = $('auth-code').value.trim(); const passConfirm = $('auth-password-confirm').value; const refCode = $('auth-referral') ? $('auth-referral').value.trim() : '';
             if (password !== passConfirm) { showToast('Şifreler uyuşmuyor.'); return; }
             if (!name || !code) { showToast('İsim ve kod gerekli.'); return; }
             const data = await postJson('/api/register', { email, password, name, code, referral_code: refCode });
@@ -201,42 +207,22 @@ $('auth-submit').addEventListener('click', async () => {
 // ---------- ALT SAYFALAR ----------
 function openSubView(targetId) {
     switchTab(targetId);
-    
     if (targetId === 'setting-account') {
         const el = $('account-page-content');
-        if (!userStatus.email) {
-            el.innerHTML = `<p class="muted small">Şu an anonim olarak kullanıyorsunuz.</p><button id="subpage-login-btn" class="primary-btn full" style="margin-top:15px;">Giriş Yap / Kayıt Ol</button>`;
-            $('subpage-login-btn').addEventListener('click', openAuthModal);
-        } else {
-            el.innerHTML = `
-                <p class="small" style="margin-top:8px;"><strong>Ad:</strong> ${escapeHtml(userStatus.name)}</p>
-                <p class="small"><strong>E-posta:</strong> ${escapeHtml(userStatus.email)}</p>
-                <div style="display:flex; flex-direction:column; gap:8px; margin-top:20px;">
-                    <button id="subpage-logout-btn" class="ghost-btn full">Çıkış Yap</button>
-                    <button id="subpage-delete-btn" class="ghost-btn full" style="border-color:var(--coral); color:var(--coral);">Hesabı Sil</button>
-                </div>`;
+        if (!userStatus.email) { el.innerHTML = `<p class="muted small">Şu an anonim olarak kullanıyorsunuz.</p><button id="subpage-login-btn" class="primary-btn full" style="margin-top:15px;">Giriş Yap / Kayıt Ol</button>`; $('subpage-login-btn').addEventListener('click', openAuthModal); } 
+        else {
+            el.innerHTML = `<p class="small" style="margin-top:8px;"><strong>Ad:</strong> ${escapeHtml(userStatus.name)}</p><p class="small"><strong>E-posta:</strong> ${escapeHtml(userStatus.email)}</p><div style="display:flex; flex-direction:column; gap:8px; margin-top:20px;"><button id="subpage-logout-btn" class="ghost-btn full">Çıkış Yap</button><button id="subpage-delete-btn" class="ghost-btn full" style="border-color:var(--coral); color:var(--coral);">Hesabı Sil</button></div>`;
             $('subpage-logout-btn').addEventListener('click', () => { if (confirm('Çıkış yapmak istiyor musunuz?')) { authToken = null; localStorage.removeItem('yks_token'); fetchStatus(); switchTab('settings'); } });
-            $('subpage-delete-btn').addEventListener('click', async () => {
-                if (confirm('Hesabınızı silmek istediğinize emin misiniz?')) {
-                    try { await fetch('/api/delete-account', { method: 'DELETE', headers: authHeaders() }); authToken = null; localStorage.removeItem('yks_token'); fetchStatus(); switchTab('settings'); showToast('Hesap silindi.'); } catch { showToast('Hesap silinemedi.'); }
-                }
-            });
+            $('subpage-delete-btn').addEventListener('click', async () => { if (confirm('Hesabınızı silmek istediğinize emin misiniz?')) { try { await fetch('/api/delete-account', { method: 'DELETE', headers: authHeaders() }); authToken = null; localStorage.removeItem('yks_token'); fetchStatus(); switchTab('settings'); showToast('Hesap silindi.'); } catch { showToast('Hesap silinemedi.'); } } });
         }
     }
-    
     if (targetId === 'setting-premium') {
         const el = $('premium-page-content');
         if (userStatus.is_premium && userStatus.premium_until) {
-            const daysLeft = Math.max(0, Math.ceil((userStatus.premium_until * 1000 - Date.now()) / (1000 * 60 * 60 * 24)));
-            const d = new Date(userStatus.premium_until * 1000).toLocaleDateString('tr-TR');
+            const daysLeft = Math.max(0, Math.ceil((userStatus.premium_until * 1000 - Date.now()) / (1000 * 60 * 60 * 24))); const d = new Date(userStatus.premium_until * 1000).toLocaleDateString('tr-TR');
             el.innerHTML = `<div class="glass-card" style="text-align:center; border-color:var(--neon-blue);"><div style="font-size:48px; font-weight:800; color:var(--neon-blue);">${daysLeft}</div><div class="muted small">gün kaldı</div><div class="small" style="margin-top:8px;">Bitiş Tarihi: ${d}</div></div>`;
         } else {
-            el.innerHTML = `
-                <div class="plans">
-                    <div class="plan"><div class="plan-name">Haftalık</div><div class="plan-price">49 ₺<small>/hafta</small></div><button class="buy-btn primary-btn full" data-plan="weekly">Satın Al</button></div>
-                    <div class="plan"><div class="plan-name">Aylık</div><div class="plan-price"><del style="font-size:16px; color:#94a3b8; margin-right:4px;">200 ₺</del>149 ₺<small>/ay</small></div><button class="buy-btn primary-btn full" data-plan="monthly">Satın Al</button></div>
-                    <div class="plan popular"><div class="ribbon">Popüler</div><div class="plan-name">Yıllık</div><div class="plan-price"><del style="font-size:16px; color:#94a3b8; margin-right:4px;">2400 ₺</del>1499 ₺<small>/yıl</small></div><button class="buy-btn primary-btn full" data-plan="yearly">Satın Al</button></div>
-                </div>`;
+            el.innerHTML = `<div class="plans"><div class="plan"><div class="plan-name">Haftalık</div><div class="plan-price">49 ₺<small>/hafta</small></div><button class="buy-btn primary-btn full" data-plan="weekly">Satın Al</button></div><div class="plan"><div class="plan-name">Aylık</div><div class="plan-price"><del style="font-size:16px; color:#94a3b8; margin-right:4px;">200 ₺</del>149 ₺<small>/ay</small></div><button class="buy-btn primary-btn full" data-plan="monthly">Satın Al</button></div><div class="plan popular"><div class="ribbon">Popüler</div><div class="plan-name">Yıllık</div><div class="plan-price"><del style="font-size:16px; color:#94a3b8; margin-right:4px;">2400 ₺</del>1499 ₺<small>/yıl</small></div><button class="buy-btn primary-btn full" data-plan="yearly">Satın Al</button></div></div>`;
             el.querySelectorAll('.buy-btn').forEach((btn) => btn.addEventListener('click', async () => {
                 const originalText = btn.textContent; btn.textContent = 'İşleniyor...'; btn.disabled = true;
                 try { const res = await fetch('/api/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify({ plan: btn.dataset.plan }) }); const data = await res.json().catch(() => ({})); if (res.ok) { showToast('Ödeme başarılı! 🎉'); applyStatus(data); switchTab('panel'); } else showToast(data.error || 'Hata oluştu.'); } catch { showToast('Bağlantı hatası.'); } finally { btn.textContent = originalText; btn.disabled = false; }
@@ -244,7 +230,6 @@ function openSubView(targetId) {
         }
     }
 }
-
 document.querySelectorAll('.setting-item').forEach(item => item.addEventListener('click', () => openSubView(item.dataset.target)));
 document.querySelectorAll('.back-btn').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.back)));
 
@@ -260,37 +245,61 @@ function updateCountdown() {
 }
 function startCountdown() { if (countdownInterval) clearInterval(countdownInterval); updateCountdown(); countdownInterval = setInterval(updateCountdown, 1000); }
 
-// ---------- MESAJ BALONLARI & 3 NOKTA YERİNE HAK ----------
+// ---------- MESAJ & DAKTİLO EFEKTİ ----------
 function messageHtml({ role, body, cls = '', avatar = ABI_AVATAR }) { 
     if (role === 'user') return `<div class="message user ${cls}"><div class="msg-bubble">${body}</div></div>`; 
     return `<div class="message ai ${cls}">${avatar}<div class="msg-bubble">${body}</div></div>`; 
 }
+function addMessage(container, opts) { container.insertAdjacentHTML('beforeend', messageHtml(opts)); const el = container.lastElementChild; scrollEnd(container); return el; }
+function addTyping(container, avatar) { return addMessage(container, { role: 'ai', avatar, body: `<div class="typing-text" style="font-size:13px; color:var(--text-muted); font-style:italic;">Mentor düşünüyor... (Kalan Hakkınız: ${userStatus.is_premium ? 'Sınırsız' : userStatus.remaining})</div>` }); }
 
-function addMessage(container, opts) { 
-    container.insertAdjacentHTML('beforeend', messageHtml(opts)); 
-    const el = container.lastElementChild; scrollEnd(container); return el; 
+// YENİ: DAKTİLO EFEKTİLİ CEVAP EKLEME
+function addAiTypewriter(container, text, avatar) {
+    const el = addMessage(container, { role: 'ai', avatar, body: '', cls: 'response-text typewriter-cursor' });
+    const bubble = el.querySelector('.msg-bubble');
+    
+    // Önce Markdown'ı HTML'e çevir, sonra HTML tag'lerini bozmadan text node'ları yavaşça ekle.
+    const fullHtml = renderMarkdown(text);
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = fullHtml;
+    
+    let nodes = Array.from(tempDiv.childNodes);
+    let i = 0;
+    bubble.innerHTML = ''; // Temizle
+    
+    // Basit daktilo: Elementleri tek tek ekle (aslında çok hızlı ama şık durur)
+    const interval = setInterval(() => {
+        if (i < nodes.length) {
+            bubble.appendChild(nodes[i].cloneNode(true));
+            i++;
+            scrollEnd(container);
+        } else {
+            clearInterval(interval);
+            el.classList.remove('typewriter-cursor');
+            renderMath(bubble); // Bittiğinde LaTeX'i render et
+            
+            // Ses butonunu ekle
+            const btn = document.createElement('button');
+            btn.className = 'read-aloud-btn';
+            btn.style = 'background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px; margin-top:8px; padding:4px;';
+            btn.title = "Sesli Oku";
+            btn.innerHTML = '🔊';
+            btn.dataset.reading = 'false';
+            btn.onclick = function() { window.toggleSpeak(this); };
+            bubble.appendChild(btn);
+        }
+    }, 100); // Her 100ms'de bir paragraf/başlık ekler (daha hızlı görünmesi için kelime yerine blok bazlı)
 }
 
-function addTyping(container, avatar) { 
-    const text = `Mentor düşünüyor... (Kalan Hakkınız: ${userStatus.is_premium ? 'Sınırsız' : userStatus.remaining})`;
-    return addMessage(container, { role: 'ai', avatar, body: `<div class="typing-text">${text}</div>` }); 
+function addQuickReplies(container, items) {
+    const row = document.createElement('div'); row.className = 'quick-replies';
+    items.forEach((item) => {
+        const btn = document.createElement('button'); btn.type = 'button'; btn.textContent = item.label;
+        btn.addEventListener('click', () => { row.remove(); item.action(); });
+        row.appendChild(btn);
+    });
+    container.appendChild(row); scrollEnd(container);
 }
-
-function addAiMarkdown(container, text, avatar) { 
-    const el = addMessage(container, { role: 'ai', avatar, body: '' }); 
-    const bubble = el.querySelector('.msg-bubble'); 
-    bubble.innerHTML = renderMarkdown(text) + `<button class="read-aloud-btn" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px; margin-top:4px; padding:4px;" title="Sesli Oku" onclick="speakText(this)">🔊</button>`; 
-    renderMath(bubble); scrollEnd(container); return el; 
-}
-
-window.speakText = function(btn) {
-    const text = btn.parentElement.innerText.replace('🔊', '').trim();
-    if (!text) return;
-    window.speechSynthesis.cancel(); 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'tr-TR'; utterance.rate = 1.0;
-    window.speechSynthesis.speak(utterance);
-};
 
 // ---------- SAYAÇLAR ----------
 function dayCounter(key) { return { get() { const v = store.get(key, { date: null, count: 0 }); return v.date === todayKey() ? v.count : 0; }, bump(n = 1) { store.set(key, { date: todayKey(), count: this.get() + n }); } }; }
@@ -298,32 +307,21 @@ const doneCounter = dayCounter('yks_done'), pomoCounter = dayCounter('yks_pomo')
 
 function getStreak() { const s = store.get('yks_streak', { count: 0, last: null }); if (!s.last) return 0; const y = new Date(); y.setDate(y.getDate() - 1); return (s.last === todayKey() || s.last === todayKey(y)) ? s.count : 0; }
 function touchStreak() { const s = store.get('yks_streak', { count: 0, last: null }); if (s.last === todayKey()) return; const y = new Date(); y.setDate(y.getDate() - 1); s.count = s.last === todayKey(y) ? s.count + 1 : 1; s.last = todayKey(); store.set('yks_streak', s); renderStats(); }
-function getGoal() { return store.get('yks_goal', 5); }
+function getGoal() { const g = store.get('yks_goal', 5); return isNaN(g) || g < 1 ? 5 : g; }
 function daysLeft() { const s = store.get('yks_exam', ''); if (!s) return null; const [y, m, d] = s.split('-').map(Number); const target = new Date(y, m - 1, d); const now = new Date(); now.setHours(0, 0, 0, 0); return Math.max(0, Math.round((target - now) / 86400000)); }
 function getProfile() { const mood = store.get('yks_mood', {}); return { name: userStatus.name, examDate: store.get('yks_exam', ''), daysLeft: daysLeft(), streak: getStreak(), dailyGoal: getGoal(), doneToday: doneCounter.get(), pomodorosToday: pomoCounter.get(), focusMinutesToday: focusCounter.get(), totalSolved: store.get('yks_total', 0), mood: mood.date === todayKey() ? mood.key : '' }; }
 
 // ---------- SEKME GEÇİŞLERİ ----------
 function switchTab(tabId) {
-    document.querySelectorAll('.view').forEach((v) => v.classList.remove('active')); 
-    document.querySelectorAll('.nav-item').forEach((n) => n.classList.remove('active'));
-    
-    const targetView = $('view-' + tabId);
-    if(targetView) targetView.classList.add('active');
-    
-    const nav = document.querySelector(`.nav-item[data-tab="${tabId}"]`); 
-    if (nav) nav.classList.add('active');
-    
-    const isSubPage = tabId.startsWith('setting-');
-    if (isSubPage) {
-        const settingsNav = document.querySelector('.nav-item[data-tab="settings"]');
-        if(settingsNav) settingsNav.classList.add('active');
-    }
-    
-    if (tabId === 'archive') { loadArchive(); }
+    document.querySelectorAll('.view').forEach((v) => v.classList.remove('active')); document.querySelectorAll('.nav-item').forEach((n) => n.classList.remove('active'));
+    const targetView = $('view-' + tabId); if(targetView) targetView.classList.add('active');
+    const nav = document.querySelector(`.nav-item[data-tab="${tabId}"]`); if (nav) nav.classList.add('active');
+    const isSubPage = tabId.startsWith('setting-'); if (isSubPage) { const s = document.querySelector('.nav-item[data-tab="settings"]'); if(s) s.classList.add('active'); }
+    if (tabId === 'archive') loadArchive();
     if (tabId === 'panel') { renderStats(); startCountdown(); fetchStatus(); }
     if (tabId === 'solve') scrollEnd($('chat-history'));
     if (tabId === 'coach') scrollEnd($('coach-messages'));
-    if (tabId === 'settings') { fetchStatus(); }
+    if (tabId === 'settings') fetchStatus();
 }
 document.querySelectorAll('.nav-item').forEach((btn) => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
 
@@ -331,7 +329,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => btn.addEventListener('cl
 function renderStats() {
     const goal = getGoal(), done = doneCounter.get(); const percent = Math.min(100, Math.round((done / goal) * 100)); const circle = $('goal-circle');
     if (circle) { const c = 2 * Math.PI * 40; circle.style.strokeDasharray = `${c}`; circle.style.strokeDashoffset = c - (percent / 100) * c; }
-    setText('goal-percent', `${percent}%`); setText('stat-streak', getStreak()); setText('stat-goal', `${Math.min(done, 99)}/${goal}`);
+    setText('goal-percent', `${percent}%`); setText('stat-streak', getStreak()); setText('stat-goal', `${done}/${goal}`);
     setText('stat-total', store.get('yks_total', 0)); setText('stat-focus', focusCounter.get()); setText('pomo-count', `Bugün ${pomoCounter.get()} tur`);
     const mood = store.get('yks_mood', {}); document.querySelectorAll('.mood-btn').forEach((b) => b.classList.toggle('active', mood.date === todayKey() && mood.key === b.dataset.mood));
     updateCountdown();
@@ -343,7 +341,24 @@ const MOOD_FALLBACK = { 'yorgun': 'Yorgun hissetmen normal. Hedefi küçült: 2-
 $('mood-row').addEventListener('click', async (e) => {
     const btn = e.target.closest('.mood-btn'); if (!btn) return; const key = btn.dataset.mood; store.set('yks_mood', { date: todayKey(), key });
     document.querySelectorAll('.mood-btn').forEach((b) => b.classList.toggle('active', b === btn)); const note = $('coach-note'); note.classList.remove('hidden'); note.textContent = 'Koç yazıyor...';
-    try { const data = await postJson('/coach', { message: `Bugün ruh halim: ${key}. Bana 2-3 cümlelik, samimi ve uygulanabilir bir motivasyon mesajı yaz.`, history: [], profile: getProfile() }); note.innerHTML = renderMarkdown(data.answer); } catch { note.textContent = MOOD_FALLBACK[key] || ''; }
+    
+    try { 
+        const data = await postJson('/coach', { message: `Bugün ruh halim: ${key}. Bana 2-3 cümlelik, samimi ve uygulanabilir bir motivasyon mesajı yaz.`, history: [], profile: getProfile() }); 
+        
+        // KOÇ NOTU İÇİN DAKTİLO EFEKTİ
+        note.innerHTML = '';
+        let i = 0;
+        const interval = setInterval(() => {
+            if (i < data.answer.length) {
+                note.innerHTML = marked.parse(data.answer.substring(0, i));
+                i += 2; // 2'şer karakter ekle
+            } else {
+                clearInterval(interval);
+                note.innerHTML = marked.parse(data.answer);
+            }
+        }, 20);
+
+    } catch { note.textContent = MOOD_FALLBACK[key] || ''; }
 });
 
 // ---------- SORU ÇÖZ ----------
@@ -386,7 +401,7 @@ async function solveImage(note) {
     try {
         const response = await fetch('/solve', { method: 'POST', headers: authHeaders(), body: formData }); const data = await response.json().catch(() => ({})); typing.remove();
         if (!response.ok || !data.answer) { const msg = [data.error, data.detail].find((m) => typeof m === 'string') || 'Çözüm hazırlanamadı.'; if (response.status === 403) { showToast('Hakkın doldu.'); switchTab('settings'); openSubView('setting-premium'); } addMessage(chatHistory, { role: 'ai', body: escapeHtml(msg), cls: 'error' }); } 
-        else { thread = { subject, note, solution: data.answer, history: [] }; addAiMarkdown(chatHistory, data.answer); addFeedbackRow(); applyStatus(data); }
+        else { thread = { subject, note, solution: data.answer, history: [] }; addAiTypewriter(chatHistory, data.answer, ABI_AVATAR); addFeedbackRow(); applyStatus(data); }
     } catch { typing.remove(); addMessage(chatHistory, { role: 'ai', body: 'Bağlantı kurulamadı.', cls: 'error' }); } finally { setSending(false); scrollEnd(chatHistory); }
 }
 
@@ -394,24 +409,13 @@ async function askFollowup(text) {
     if (!thread.solution) thread.subject = selectedSubject; addMessage(chatHistory, { role: 'user', body: nl2br(text) }); messageInput.value = ''; autoGrow(messageInput); setSending(true); const typing = addTyping(chatHistory, ABI_AVATAR);
     try {
         const data = await postJson('/followup', { subject: thread.subject, note: thread.note, solution: thread.solution, history: thread.history.slice(-10), message: text });
-        typing.remove(); thread.history.push({ role: 'user', content: text }, { role: 'assistant', content: data.answer }); addAiMarkdown(chatHistory, data.answer); addFeedbackRow(); applyStatus(data);
+        typing.remove(); thread.history.push({ role: 'user', content: text }, { role: 'assistant', content: data.answer }); addAiTypewriter(chatHistory, data.answer, ABI_AVATAR); addFeedbackRow(); applyStatus(data);
     } catch (err) { typing.remove(); if (err.status === 403) { showToast('Hakkın doldu.'); switchTab('settings'); openSubView('setting-premium'); } addMessage(chatHistory, { role: 'ai', body: escapeHtml(err.message), cls: 'error' }); } finally { setSending(false); scrollEnd(chatHistory); }
 }
+
 function addFeedbackRow() {
-    const row = document.createElement('div'); 
-    row.className = 'feedback-row';
-    
-    // Sadeleştirilmiş ve temiz HTML
-    row.innerHTML = `
-        <span class="feedback-text">Anlatım net oldu mu?</span>
-        <button type="button" class="fb yes">✅ Anlaşıldı</button>
-        <button type="button" class="fb no">🤔 Anlaşılmadı</button>`;
-        
-    chatHistory.appendChild(row); 
-    scrollEnd(chatHistory);
-    
-    row.querySelector('.yes').addEventListener('click', () => { row.remove(); onUnderstood(); });
-    row.querySelector('.no').addEventListener('click', () => { row.remove(); onNotUnderstood(); });
+    const row = document.createElement('div'); row.className = 'feedback-row'; row.innerHTML = `<span>Anlatım net oldu mu?</span><button type="button" class="fb yes">✅ Anlaşıldı</button><button type="button" class="fb no">🤔 Anlaşılmadı</button>`;
+    chatHistory.appendChild(row); scrollEnd(chatHistory); row.querySelector('.yes').addEventListener('click', () => { row.remove(); onUnderstood(); }); row.querySelector('.no').addEventListener('click', () => { row.remove(); onNotUnderstood(); });
 }
 
 const PRAISE = ['Harika! Bu soru artık senin. 💪', 'Süper! Netlerin artıyor. 🎉', 'Tamamdır, bir soruyu daha hallettik! 🚀'];
@@ -437,7 +441,11 @@ document.querySelectorAll('.quick-btn').forEach((btn) => btn.addEventListener('c
 
 async function sendCoach(text) {
     if (!text || coachSending) return; enterCoachChat(); addMessage(coachMessages, { role: 'user', body: nl2br(text) }); coachInput.value = ''; autoGrow(coachInput); coachSending = true; updateCoachSend(); const typing = addTyping(coachMessages, COACH_AVATAR);
-    try { const data = await postJson('/coach', { message: text, history: coachHistory.slice(-12), profile: getProfile() }); typing.remove(); coachHistory.push({ role: 'user', content: text }, { role: 'assistant', content: data.answer }); addAiMarkdown(coachMessages, data.answer, COACH_AVATAR); } catch (err) { typing.remove(); addMessage(coachMessages, { role: 'ai', avatar: COACH_AVATAR, body: escapeHtml(err.message), cls: 'error' }); } finally { coachSending = false; updateCoachSend(); scrollEnd(coachMessages); }
+    try { 
+        const data = await postJson('/coach', { message: text, history: coachHistory.slice(-12), profile: getProfile() }); 
+        typing.remove(); coachHistory.push({ role: 'user', content: text }, { role: 'assistant', content: data.answer }); 
+        addAiTypewriter(coachMessages, data.answer, COACH_AVATAR); 
+    } catch (err) { typing.remove(); addMessage(coachMessages, { role: 'ai', avatar: COACH_AVATAR, body: escapeHtml(err.message), cls: 'error' }); } finally { coachSending = false; updateCoachSend(); scrollEnd(coachMessages); }
 }
 
 // ---------- ODAKLAN ----------
@@ -463,7 +471,23 @@ $('archive-filter').addEventListener('click', (e) => { const chip = e.target.clo
 function renderArchiveList() {
     const list = $('archive-list'); const items = archiveFilter === 'Hepsi' ? archiveData : archiveData.filter((q) => q.subject === archiveFilter);
     if (items.length === 0) { list.innerHTML = `<div class="glass-card muted" style="text-align:center">📭 Burada henüz soru yok.</div>`; return; }
-    list.innerHTML = items.map((item, i) => { const date = new Date(item.created_at).toLocaleDateString('tr-TR'); return `<div class="glass-card" style="margin-bottom:14px"><img class="arch-img" src="${item.image}" alt="Soru"><div class="arch-meta"><span class="arch-tag">${escapeHtml(item.subject)}</span><span class="small muted">${date}</span></div><button type="button" class="ghost-btn full archive-toggle" data-index="${i}">Çözümü göster</button><div class="archive-answer hidden" id="answer-${i}">${renderMarkdown(item.answer)}<button class="read-aloud-btn" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px; margin-top:8px;" onclick="speakText(this)">🔊 Sesli Dinle</button></div></div>`; }).join('');
+    
+    list.innerHTML = items.map((item, i) => { 
+        const date = new Date(item.created_at).toLocaleDateString('tr-TR'); 
+        // RESİM KONTROLÜ (Base64 veya URL)
+        let imgSrc = item.image;
+        if (imgSrc && !imgSrc.startsWith('http') && !imgSrc.startsWith('data:')) {
+            imgSrc = 'data:image/jpeg;base64,' + imgSrc;
+        }
+        
+        return `<div class="glass-card" style="margin-bottom:14px">
+            <img class="arch-img" src="${imgSrc}" alt="Soru" onerror="this.src='https://via.placeholder.com/300x150/0b1020/ffffff?text=Fotoğraf+Yüklenemedi'">
+            <div class="arch-meta"><span class="arch-tag">${escapeHtml(item.subject)}</span><span class="small muted">${date}</span></div>
+            <button type="button" class="ghost-btn full archive-toggle" data-index="${i}">Çözümü göster</button>
+            <div class="archive-answer hidden" id="answer-${i}">${renderMarkdown(item.answer)}<button class="read-aloud-btn" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px; margin-top:8px;" onclick="window.toggleSpeak(this)">🔊 Sesli Dinle</button></div>
+        </div>`; 
+    }).join('');
+    
     list.querySelectorAll('.archive-toggle').forEach((btn) => btn.addEventListener('click', () => { const answer = $('answer-' + btn.dataset.index); const opening = answer.classList.contains('hidden'); answer.classList.toggle('hidden', !opening); btn.textContent = opening ? 'Çözümü gizle' : 'Çözümü göster'; if (opening && !answer.dataset.rendered) { renderMath(answer); answer.dataset.rendered = '1'; } }));
 }
 async function loadArchive() { const list = $('archive-list'); list.innerHTML = '<div class="glass-card muted">Yükleniyor...</div>'; try { const response = await fetch('/history', { headers: authHeaders() }); if (!response.ok) throw new Error(); archiveData = await response.json(); archiveFilter = 'Hepsi'; renderArchiveFilter(); renderArchiveList(); } catch { list.innerHTML = '<div class="glass-card" style="color:var(--coral)">Arşiv yüklenemedi.</div>'; } }
@@ -481,13 +505,23 @@ $('generate-pdf-btn').addEventListener('click', async () => {
     try {
         const response = await fetch('/history?pdf=1', { headers: authHeaders() }); if (response.status === 403) { switchTab('settings'); openSubView('setting-premium'); return; } if (!response.ok) throw new Error('history');
         const all = await response.json(); let filtered = all.filter((q) => selectedSubjects.includes(q.subject)); if (filtered.length === 0) { showToast('Seçtiğin derslerde arşivde soru yok.'); return; } filtered = filtered.sort(() => 0.5 - Math.random()).slice(0, count);
+        
         pdfContainer = document.createElement('div'); pdfContainer.style.cssText = 'width:794px;padding:40px;background:#fff;color:#000;font-family:Inter,Arial,sans-serif;position:fixed;top:0;left:0;z-index:9999;pointer-events:none;';
         let html = `<div style="text-align:center;margin-bottom:30px;border-bottom:2px solid #000;padding-bottom:10px"><h1 style="margin:0">YKS Sorumatik</h1><p>Kişiselleştirilmiş Deneme Testi</p></div><h3>SORULAR</h3>`;
-        filtered.forEach((q, i) => { html += `<div style="margin-bottom:30px;page-break-inside:avoid"><strong>Soru ${i + 1} (${escapeHtml(q.subject)})</strong><br><img src="${q.image}" style="max-width:100%;max-height:400px;display:block;margin:10px 0"></div>`; });
+        
+        filtered.forEach((q, i) => { 
+            let imgSrc = q.image; if (imgSrc && !imgSrc.startsWith('http') && !imgSrc.startsWith('data:')) { imgSrc = 'data:image/jpeg;base64,' + imgSrc; }
+            html += `<div style="margin-bottom:30px;page-break-inside:avoid"><strong>Soru ${i + 1} (${escapeHtml(q.subject)})</strong><br><img src="${imgSrc}" style="max-width:100%;max-height:400px;display:block;margin:10px 0"></div>`; 
+        });
         html += `<div style="page-break-before:always"><h3 style="border-top:2px solid #000;padding-top:20px">ÇÖZÜMLER</h3>`;
         filtered.forEach((q, i) => { html += `<div style="margin-bottom:30px;page-break-inside:avoid"><strong>Soru ${i + 1} Çözümü</strong><div style="font-size:14px;line-height:1.6">${renderMarkdown(q.answer)}</div></div>`; }); html += `</div>`;
+        
         pdfContainer.innerHTML = html; document.body.appendChild(pdfContainer); renderMath(pdfContainer);
-        await Promise.all(Array.from(pdfContainer.querySelectorAll('img')).map((img) => img.decode ? img.decode().catch(() => { }) : Promise.resolve())); await new Promise((r) => setTimeout(r, 500));
+        
+        // Resimlerin yüklenmesini zorla bekle (PDF boş çıkmasın)
+        await Promise.all(Array.from(pdfContainer.querySelectorAll('img')).map((img) => img.decode ? img.decode().catch(() => { }) : Promise.resolve())); 
+        await new Promise((r) => setTimeout(r, 1500)); // LaTeX ve resimler için ekstra bekleme
+
         const opt = { margin: 10, filename: `YKS_Test_${Date.now()}.pdf`, image: { type: 'jpeg', quality: 0.95 }, html2canvas: { scale: 2, useCORS: true, scrollX: 0, scrollY: 0, backgroundColor: '#ffffff' }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['css', 'legacy'] } };
         await html2pdf().set(opt).from(pdfContainer).save(); showToast('PDF indirildi. Bol şans! 💪');
     } catch (error) { console.error(error); showToast('PDF oluşturulurken bir hata oluştu.'); } finally { if (pdfContainer && pdfContainer.parentNode) pdfContainer.parentNode.removeChild(pdfContainer); resetBtn(); }

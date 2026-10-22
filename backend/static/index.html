@@ -15,7 +15,6 @@
   <header class="topbar">
     <div class="brand">🧠 <span>YKS Sorumatik</span></div>
     <div style="display:flex; gap:8px; align-items:center;">
-      <!-- SAĞ ÜSTTEKİ 3 NOKTA YERİNE HAK SAYISI -->
       <button id="quota-chip" class="quota-chip" type="button"><span id="quota-text">Yükleniyor...</span></button>
     </div>
   </header>
@@ -87,6 +86,7 @@
         <div class="muted small" id="pomo-count">Bugün 0 tur</div>
       </div>
 
+      <!-- GELİŞMİŞ ANALİZ KARTI -->
       <div class="glass-card" id="analytics-card">
         <div class="card-title">📊 Zayıf Noktalarım (Konu Analizi)</div>
         <div id="analytics-content" class="muted small" style="line-height: 1.6;">Yükleniyor...</div>
@@ -128,7 +128,6 @@
           <h3 style="margin:0 0 4px">Koçuna ne danışmak istersin?</h3>
         </div>
         <div class="quick-grid">
-          <!-- 2 KART DAHA EKLENDİ -->
           <button class="quick-btn" type="button" data-prompt="Bugün hangi konulara çalışmalıyım? Kısa bir plan çıkar."><span>📅</span>Bugün ne çalışayım?</button>
           <button class="quick-btn" type="button" data-prompt="Bana bir haftalık gerçekçi YKS çalışma programı hazırla."><span>🗓️</span>Haftalık program</button>
           <button class="quick-btn" type="button" data-prompt="Netlerimi hızlı artırmak için ne yapmalıyım?"><span>📈</span>Netlerimi artır</button>
@@ -316,11 +315,15 @@
         <button class="back-btn" data-back="settings">←</button>
         <h2>Sorumatik AIlesi</h2>
       </div>
-      <div class="glass-card">
-        <div style="font-size: 48px; text-align: center; margin-bottom: 16px;">🚀</div>
-        <p class="muted" style="font-size: 14px; line-height: 1.6; text-align: center;">
+      <div class="glass-card" style="text-align: center;">
+        <div style="font-size: 48px; margin-bottom: 16px;">🚀</div>
+        <p class="muted" style="font-size: 14px; line-height: 1.6; margin-bottom: 24px;">
           Sorumatik AIlesi, yapay zeka destekli eğitim araçları geliştiren bir topluluktur. Amacımız, her öğrencinin kaliteli eğitime erişimini kolaylaştırmak.<br><br>Bizi tercih ettiğin için teşekkürler! 💙
         </p>
+        <!-- YENİ IG BUTONU -->
+        <a href="https://instagram.com/sorumatik.ai" target="_blank" class="primary-btn full" style="display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%); color: white;">
+          <span>Instagram'da Takip Et</span>
+        </a>
       </div>
     </section>
 
@@ -388,7 +391,6 @@
       <button id="btn-send-code" class="ghost-btn" type="button" style="padding:11px 12px; font-size:12px;">Kod Al</button>
     </div>
 
-    <!-- PLACEHOLDER DEĞİŞTİ: Kod giriniz (varsa) -->
     <div id="auth-referral-wrap" class="hidden">
       <input id="auth-referral" class="text-input" type="text" placeholder="Kod giriniz (varsa)">
     </div>

@@ -548,9 +548,10 @@ $('generate-pdf-btn').addEventListener('click', async () => {
     
     btn.textContent = 'Hazırlanıyor... ⏳'; btn.disabled = true; 
     
+    // PDF üretilirken ekranı kilitleyelim
     const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(255,255,255,0.9); z-index:99998; display:flex; align-items:center; justify-content:center; flex-direction:column; font-family:Inter,sans-serif;';
-    overlay.innerHTML = '<div style="font-size:24px; margin-bottom:10px;">📄 PDF Hazırlanıyor...</div><div style="color:#666;">Lütfen bekleyin, sayfayı kapatmayın.</div>';
+    overlay.style.cssText = 'position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.8); z-index:99998; display:flex; align-items:center; justify-content:center; flex-direction:column; color:white; font-family:Inter,sans-serif;';
+    overlay.innerHTML = '<div style="font-size:24px; margin-bottom:10px;">📄 PDF Hazırlanıyor...</div><div style="color:#ccc;">Lütfen bekleyin, sayfayı kapatmayın.</div>';
     document.body.appendChild(overlay);
 
     let pdfContainer;
@@ -564,8 +565,9 @@ $('generate-pdf-btn').addEventListener('click', async () => {
         if (filtered.length === 0) { showToast('Seçtiğin derslerde arşivde soru yok.'); return; } 
         filtered = filtered.sort(() => 0.5 - Math.random()).slice(0, count);
         
+        // Kapsayıcıyı EKRANIN ORTASINA ve GÖRÜNÜR YAP (Kütüphane görebilsin diye)
         pdfContainer = document.createElement('div'); 
-        pdfContainer.style.cssText = 'width:794px; padding:40px; background:#ffffff; color:#000000; font-family:Arial,sans-serif; position:fixed; top:0; left:0; z-index:99999; opacity:1;';
+        pdfContainer.style.cssText = 'width:794px; min-height:1000px; padding:40px; background:#ffffff; color:#000000; font-family:Arial,sans-serif; position:fixed; top:0; left:50%; transform:translateX(-50%); z-index:99999; overflow:hidden;';
         
         let html = `<div style="text-align:center; margin-bottom:30px; border-bottom:2px solid #000; padding-bottom:10px;"><h1 style="margin:0; color:#000;">YKS Sorumatik</h1><p style="color:#333;">Kişiselleştirilmiş Deneme Testi</p></div><h3 style="color:#000;">SORULAR</h3>`;
         
@@ -583,10 +585,11 @@ $('generate-pdf-btn').addEventListener('click', async () => {
         
         pdfContainer.innerHTML = html; 
         document.body.appendChild(pdfContainer); 
-        pdfContainer.style.opacity = '0.01'; 
-
+        
+        // LaTeX Formüllerini çiz
         renderMath(pdfContainer);
         
+        // Resimlerin yüklenmesini bekle
         const images = pdfContainer.querySelectorAll('img');
         await Promise.all(Array.from(images).map(img => {
             return new Promise(resolve => {
@@ -595,36 +598,25 @@ $('generate-pdf-btn').addEventListener('click', async () => {
             });
         }));
         
+        // Tarayıcının render işlemini bitirmesi için ekstra bekle
         await new Promise(r => setTimeout(r, 1500)); 
 
-        const canvas = await html2canvas(pdfContainer, { 
-            scale: 2, 
-            useCORS: true, 
-            backgroundColor: '#ffffff',
-            windowWidth: 800,
-            windowHeight: pdfContainer.scrollHeight
-        });
+        // HTML2PDF Ayarları (En Stabil Ayarlar)
+        const opt = { 
+            margin: 10, 
+            filename: `YKS_Test_${Date.now()}.pdf`, 
+            image: { type: 'jpeg', quality: 0.98 }, 
+            html2canvas: { 
+                scale: 1.5, // Yüksek çözünürlük kasmayı önlemek için 1.5
+                useCORS: true, 
+                scrollY: 0,
+                scrollX: 0
+            }, 
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }, 
+            pagebreak: { mode: ['css', 'legacy'] } 
+        };
         
-        const imgData = canvas.toDataURL('image/jpeg', 0.95);
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-        
-        let heightLeft = pdfHeight;
-        let position = 0;
-        
-        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
-        heightLeft -= pdfHeight;
-        
-        while (heightLeft > 0) {
-            position = heightLeft - pdfHeight;
-            pdf.addPage();
-            pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
-            heightLeft -= pdfHeight;
-        }
-        
-        pdf.save(`YKS_Test_${Date.now()}.pdf`); 
+        await html2pdf().set(opt).from(pdfContainer).save(); 
         showToast('PDF başarıyla indirildi! 💪');
         
     } catch (error) { 

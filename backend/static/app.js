@@ -227,9 +227,26 @@ function openSubView(targetId) {
             el.innerHTML = `<div class="glass-card" style="text-align:center; border-color:var(--neon-blue);"><div style="font-size:48px; font-weight:800; color:var(--neon-blue);">${daysLeft}</div><div class="muted small">gün kaldı</div><div class="small" style="margin-top:8px;">Bitiş Tarihi: ${d}</div></div>`;
         } else {
             el.innerHTML = `<div class="plans"><div class="plan"><div class="plan-name">Haftalık</div><div class="plan-price">49 ₺<small>/hafta</small></div><button class="buy-btn primary-btn full" data-plan="weekly">Satın Al</button></div><div class="plan"><div class="plan-name">Aylık</div><div class="plan-price"><del style="font-size:16px; color:#94a3b8; margin-right:4px;">200 ₺</del>149 ₺<small>/ay</small></div><button class="buy-btn primary-btn full" data-plan="monthly">Satın Al</button></div><div class="plan popular"><div class="ribbon">Popüler</div><div class="plan-name">Yıllık</div><div class="plan-price"><del style="font-size:16px; color:#94a3b8; margin-right:4px;">2400 ₺</del>1499 ₺<small>/yıl</small></div><button class="buy-btn primary-btn full" data-plan="yearly">Satın Al</button></div></div>`;
+            
             el.querySelectorAll('.buy-btn').forEach((btn) => btn.addEventListener('click', async () => {
-                const originalText = btn.textContent; btn.textContent = 'İşleniyor...'; btn.disabled = true;
-                try { const res = await fetch('/api/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify({ plan: btn.dataset.plan }) }); const data = await res.json().catch(() => ({})); if (res.ok) { showToast('Ödeme başarılı! 🎉'); applyStatus(data); switchTab('panel'); } else showToast(data.error || 'Hata oluştu.'); } catch { showToast('Bağlantı hatası.'); } finally { btn.textContent = originalText; btn.disabled = false; }
+                const originalText = btn.textContent; btn.textContent = 'Yönlendiriliyor...'; btn.disabled = true;
+                try {
+                    const res = await fetch('/api/shopier-checkout', { 
+                        method: 'POST', 
+                        headers: { 'Content-Type': 'application/json', ...authHeaders() }, 
+                        body: JSON.stringify({ plan: btn.dataset.plan }) 
+                    });
+                    const data = await res.json();
+                    if (data.url) {
+                        window.location.href = data.url; 
+                    } else {
+                        showToast('Ödeme sayfası oluşturulamadı.');
+                    }
+                } catch { 
+                    showToast('Bağlantı hatası.'); 
+                } finally { 
+                    btn.textContent = originalText; btn.disabled = false; 
+                }
             }));
         }
     }
@@ -499,21 +516,10 @@ $('archive-filter').addEventListener('click', (e) => { const chip = e.target.clo
 function renderArchiveList() {
     const list = $('archive-list'); const items = archiveFilter === 'Hepsi' ? archiveData : archiveData.filter((q) => q.subject === archiveFilter);
     if (items.length === 0) { list.innerHTML = `<div class="glass-card muted" style="text-align:center">📭 Burada henüz soru yok.</div>`; return; }
-    
     list.innerHTML = items.map((item, i) => { 
         const date = new Date(item.created_at).toLocaleDateString('tr-TR'); 
-        
-        // RESİM KONTROLÜ
         let imgSrc = item.image;
-        if (imgSrc && !imgSrc.startsWith('http') && !imgSrc.startsWith('data:')) {
-            imgSrc = 'data:image/jpeg;base64,' + imgSrc;
-        }
-        
-        // Eğer resim yoksa veya hatalıysa placeholder göster
-        if (!imgSrc || imgSrc === 'error' || imgSrc === 'None') {
-            imgSrc = 'https://via.placeholder.com/300x150/0b1020/ffffff?text=Fotoğraf+Yok';
-        }
-
+        if (imgSrc && !imgSrc.startsWith('http') && !imgSrc.startsWith('data:')) { imgSrc = 'data:image/jpeg;base64,' + imgSrc; }
         return `<div class="glass-card" style="margin-bottom:14px">
             <img class="arch-img" src="${imgSrc}" alt="Soru" onerror="this.src='https://via.placeholder.com/300x150/0b1020/ffffff?text=Fotoğraf+Yüklenemedi'">
             <div class="arch-meta"><span class="arch-tag">${escapeHtml(item.subject)}</span><span class="small muted">${date}</span></div>
@@ -521,14 +527,7 @@ function renderArchiveList() {
             <div class="archive-answer hidden" id="answer-${i}">${renderMarkdown(item.answer)}<button class="read-aloud-btn" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px; margin-top:8px;" onclick="window.toggleSpeak(this)">🔊 Sesli Dinle</button></div>
         </div>`; 
     }).join('');
-    
-    list.querySelectorAll('.archive-toggle').forEach((btn) => btn.addEventListener('click', () => { 
-        const answer = $('answer-' + btn.dataset.index); 
-        const opening = answer.classList.contains('hidden'); 
-        answer.classList.toggle('hidden', !opening); 
-        btn.textContent = opening ? 'Çözümü gizle' : 'Çözümü göster'; 
-        if (opening && !answer.dataset.rendered) { renderMath(answer); answer.dataset.rendered = '1'; } 
-    }));
+    list.querySelectorAll('.archive-toggle').forEach((btn) => btn.addEventListener('click', () => { const answer = $('answer-' + btn.dataset.index); const opening = answer.classList.contains('hidden'); answer.classList.toggle('hidden', !opening); btn.textContent = opening ? 'Çözümü gizle' : 'Çözümü göster'; if (opening && !answer.dataset.rendered) { renderMath(answer); answer.dataset.rendered = '1'; } }));
 }
 async function loadArchive() { const list = $('archive-list'); list.innerHTML = '<div class="glass-card muted">Yükleniyor...</div>'; try { const response = await fetch('/history', { headers: authHeaders() }); if (!response.ok) throw new Error(); archiveData = await response.json(); archiveFilter = 'Hepsi'; renderArchiveFilter(); renderArchiveList(); } catch { list.innerHTML = '<div class="glass-card" style="color:var(--coral)">Arşiv yüklenemedi.</div>'; } }
 
@@ -546,19 +545,15 @@ $('generate-pdf-btn').addEventListener('click', async () => {
     const count = clampCount(countInput.value);
     
     if (selectedSubjects.length === 0) { showToast('En az bir ders seçmelisin.'); return; }
-    $('generate-pdf-btn').addEventListener('click', async () => {
-    if (!userStatus.is_premium) { switchTab('settings'); openSubView('setting-premium'); return; }
-    
-    const btn = $('generate-pdf-btn'); 
-    const resetBtn = () => { btn.textContent = 'PDF İndir 📥'; btn.disabled = false; }; 
-    const selectedSubjects = Array.from(document.querySelectorAll('#pdf-subjects input:checked')).map((cb) => cb.value); 
-    const count = clampCount(countInput.value);
-    
-    if (selectedSubjects.length === 0) { showToast('En az bir ders seçmelisin.'); return; }
     
     btn.textContent = 'Hazırlanıyor... ⏳'; btn.disabled = true; 
-    let pdfContainer;
     
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(255,255,255,0.9); z-index:99998; display:flex; align-items:center; justify-content:center; flex-direction:column; font-family:Inter,sans-serif;';
+    overlay.innerHTML = '<div style="font-size:24px; margin-bottom:10px;">📄 PDF Hazırlanıyor...</div><div style="color:#666;">Lütfen bekleyin, sayfayı kapatmayın.</div>';
+    document.body.appendChild(overlay);
+
+    let pdfContainer;
     try {
         const response = await fetch('/history?pdf=1', { headers: authHeaders() }); 
         if (response.status === 403) { switchTab('settings'); openSubView('setting-premium'); return; } 
@@ -569,16 +564,15 @@ $('generate-pdf-btn').addEventListener('click', async () => {
         if (filtered.length === 0) { showToast('Seçtiğin derslerde arşivde soru yok.'); return; } 
         filtered = filtered.sort(() => 0.5 - Math.random()).slice(0, count);
         
-        // PDF Kapsayıcısını Ekran Dışına Taşı (Ama Görünür Bırak)
         pdfContainer = document.createElement('div'); 
-        pdfContainer.style.cssText = 'width:800px; padding:40px; background:#ffffff; color:#000000; font-family:Arial,sans-serif; position:absolute; top:0; left:-9999px; z-index:-9999;';
+        pdfContainer.style.cssText = 'width:794px; padding:40px; background:#ffffff; color:#000000; font-family:Arial,sans-serif; position:fixed; top:0; left:0; z-index:99999; opacity:1;';
         
         let html = `<div style="text-align:center; margin-bottom:30px; border-bottom:2px solid #000; padding-bottom:10px;"><h1 style="margin:0; color:#000;">YKS Sorumatik</h1><p style="color:#333;">Kişiselleştirilmiş Deneme Testi</p></div><h3 style="color:#000;">SORULAR</h3>`;
         
         filtered.forEach((q, i) => { 
             let imgSrc = q.image; 
             if (imgSrc && !imgSrc.startsWith('http') && !imgSrc.startsWith('data:')) { imgSrc = 'data:image/jpeg;base64,' + imgSrc; }
-            html += `<div style="margin-bottom:30px; page-break-inside:avoid; color:#000;"><strong style="color:#000;">Soru ${i + 1} (${escapeHtml(q.subject)})</strong><br><img src="${imgSrc}" style="max-width:100%; max-height:400px; display:block; margin:10px 0; border:1px solid #ccc;"></div>`; 
+            html += `<div style="margin-bottom:30px; page-break-inside:avoid; color:#000;"><strong style="color:#000;">Soru ${i + 1} (${escapeHtml(q.subject)})</strong><br><img crossorigin="anonymous" src="${imgSrc}" style="max-width:100%; max-height:400px; display:block; margin:10px 0; border:1px solid #ccc;"></div>`; 
         });
         
         html += `<div style="page-break-before:always;"><h3 style="border-top:2px solid #000; padding-top:20px; color:#000;">ÇÖZÜMLER</h3>`;
@@ -589,9 +583,10 @@ $('generate-pdf-btn').addEventListener('click', async () => {
         
         pdfContainer.innerHTML = html; 
         document.body.appendChild(pdfContainer); 
+        pdfContainer.style.opacity = '0.01'; 
+
         renderMath(pdfContainer);
         
-        // Tüm resimlerin tamamen yüklenmesini bekle
         const images = pdfContainer.querySelectorAll('img');
         await Promise.all(Array.from(images).map(img => {
             return new Promise(resolve => {
@@ -600,10 +595,8 @@ $('generate-pdf-btn').addEventListener('click', async () => {
             });
         }));
         
-        // Tarayıcının render işlemini bitirmesi için bekle
-        await new Promise(r => setTimeout(r, 1000)); 
+        await new Promise(r => setTimeout(r, 1500)); 
 
-        // DOĞRUDAN HTML2CANVAS VE JSPDF KULLANIMI
         const canvas = await html2canvas(pdfContainer, { 
             scale: 2, 
             useCORS: true, 
@@ -613,8 +606,6 @@ $('generate-pdf-btn').addEventListener('click', async () => {
         });
         
         const imgData = canvas.toDataURL('image/jpeg', 0.95);
-        
-        // jsPDF Başlat
         const { jsPDF } = window.jspdf;
         const pdf = new jsPDF('p', 'mm', 'a4');
         const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -623,11 +614,9 @@ $('generate-pdf-btn').addEventListener('click', async () => {
         let heightLeft = pdfHeight;
         let position = 0;
         
-        // İlk sayfayı ekle
         pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
         heightLeft -= pdfHeight;
         
-        // Sayfa yetmediği sürece yeni sayfa ekle
         while (heightLeft > 0) {
             position = heightLeft - pdfHeight;
             pdf.addPage();
@@ -643,40 +632,11 @@ $('generate-pdf-btn').addEventListener('click', async () => {
         showToast('PDF oluşturulurken bir hata oluştu.'); 
     } finally { 
         if (pdfContainer && pdfContainer.parentNode) pdfContainer.parentNode.removeChild(pdfContainer); 
+        document.body.removeChild(overlay); 
         resetBtn(); 
     }
 });
-        
-        // Tarayıcının render işlemini bitirmesi için ekstra bekleme
-        await new Promise(r => setTimeout(r, 1500)); 
 
-        // HTML2PDF Ayarları (Scale düşürüldü, bellek çökmesi engellendi)
-        const opt = { 
-            margin: 10, 
-            filename: `YKS_Test_${Date.now()}.pdf`, 
-            image: { type: 'jpeg', quality: 0.9 }, 
-            html2canvas: { 
-                scale: 1.5, // 2 yerine 1.5 yaptık, RAM çökmesini engeller
-                useCORS: true, 
-                scrollX: 0, 
-                scrollY: 0, 
-                backgroundColor: '#ffffff' 
-            }, 
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }, 
-            pagebreak: { mode: ['css', 'legacy'] } 
-        };
-        
-        await html2pdf().set(opt).from(pdfContainer).save(); 
-        showToast('PDF başarıyla indirildi! 💪');
-        
-    } catch (error) { 
-        console.error("PDF Hatası:", error); 
-        showToast('PDF oluşturulurken bir hata oluştu.'); 
-    } finally { 
-        if (pdfContainer && pdfContainer.parentNode) pdfContainer.parentNode.removeChild(pdfContainer); 
-        resetBtn(); 
-    }
-});
 $('quota-chip').addEventListener('click', () => { switchTab('settings'); openSubView('setting-premium'); });
 
 // ---------- Başlangıç ----------

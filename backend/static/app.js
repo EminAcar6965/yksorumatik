@@ -499,10 +499,21 @@ $('archive-filter').addEventListener('click', (e) => { const chip = e.target.clo
 function renderArchiveList() {
     const list = $('archive-list'); const items = archiveFilter === 'Hepsi' ? archiveData : archiveData.filter((q) => q.subject === archiveFilter);
     if (items.length === 0) { list.innerHTML = `<div class="glass-card muted" style="text-align:center">📭 Burada henüz soru yok.</div>`; return; }
+    
     list.innerHTML = items.map((item, i) => { 
         const date = new Date(item.created_at).toLocaleDateString('tr-TR'); 
+        
+        // RESİM KONTROLÜ
         let imgSrc = item.image;
-        if (imgSrc && !imgSrc.startsWith('http') && !imgSrc.startsWith('data:')) { imgSrc = 'data:image/jpeg;base64,' + imgSrc; }
+        if (imgSrc && !imgSrc.startsWith('http') && !imgSrc.startsWith('data:')) {
+            imgSrc = 'data:image/jpeg;base64,' + imgSrc;
+        }
+        
+        // Eğer resim yoksa veya hatalıysa placeholder göster
+        if (!imgSrc || imgSrc === 'error' || imgSrc === 'None') {
+            imgSrc = 'https://via.placeholder.com/300x150/0b1020/ffffff?text=Fotoğraf+Yok';
+        }
+
         return `<div class="glass-card" style="margin-bottom:14px">
             <img class="arch-img" src="${imgSrc}" alt="Soru" onerror="this.src='https://via.placeholder.com/300x150/0b1020/ffffff?text=Fotoğraf+Yüklenemedi'">
             <div class="arch-meta"><span class="arch-tag">${escapeHtml(item.subject)}</span><span class="small muted">${date}</span></div>
@@ -510,7 +521,14 @@ function renderArchiveList() {
             <div class="archive-answer hidden" id="answer-${i}">${renderMarkdown(item.answer)}<button class="read-aloud-btn" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px; margin-top:8px;" onclick="window.toggleSpeak(this)">🔊 Sesli Dinle</button></div>
         </div>`; 
     }).join('');
-    list.querySelectorAll('.archive-toggle').forEach((btn) => btn.addEventListener('click', () => { const answer = $('answer-' + btn.dataset.index); const opening = answer.classList.contains('hidden'); answer.classList.toggle('hidden', !opening); btn.textContent = opening ? 'Çözümü gizle' : 'Çözümü göster'; if (opening && !answer.dataset.rendered) { renderMath(answer); answer.dataset.rendered = '1'; } }));
+    
+    list.querySelectorAll('.archive-toggle').forEach((btn) => btn.addEventListener('click', () => { 
+        const answer = $('answer-' + btn.dataset.index); 
+        const opening = answer.classList.contains('hidden'); 
+        answer.classList.toggle('hidden', !opening); 
+        btn.textContent = opening ? 'Çözümü gizle' : 'Çözümü göster'; 
+        if (opening && !answer.dataset.rendered) { renderMath(answer); answer.dataset.rendered = '1'; } 
+    }));
 }
 async function loadArchive() { const list = $('archive-list'); list.innerHTML = '<div class="glass-card muted">Yükleniyor...</div>'; try { const response = await fetch('/history', { headers: authHeaders() }); if (!response.ok) throw new Error(); archiveData = await response.json(); archiveFilter = 'Hepsi'; renderArchiveFilter(); renderArchiveList(); } catch { list.innerHTML = '<div class="glass-card" style="color:var(--coral)">Arşiv yüklenemedi.</div>'; } }
 
@@ -521,32 +539,95 @@ $('count-minus').addEventListener('click', () => { countInput.value = clampCount
 
 $('generate-pdf-btn').addEventListener('click', async () => {
     if (!userStatus.is_premium) { switchTab('settings'); openSubView('setting-premium'); return; }
-    const btn = $('generate-pdf-btn'); const resetBtn = () => { btn.textContent = 'PDF İndir 📥'; btn.disabled = false; }; const selectedSubjects = Array.from(document.querySelectorAll('#pdf-subjects input:checked')).map((cb) => cb.value); const count = clampCount(countInput.value);
+    
+    const btn = $('generate-pdf-btn'); 
+    const resetBtn = () => { btn.textContent = 'PDF İndir 📥'; btn.disabled = false; }; 
+    const selectedSubjects = Array.from(document.querySelectorAll('#pdf-subjects input:checked')).map((cb) => cb.value); 
+    const count = clampCount(countInput.value);
+    
     if (selectedSubjects.length === 0) { showToast('En az bir ders seçmelisin.'); return; }
-    btn.textContent = 'Hazırlanıyor... ⏳'; btn.disabled = true; let pdfContainer;
+    
+    btn.textContent = 'Hazırlanıyor... ⏳'; btn.disabled = true; 
+    let pdfContainer;
+    
     try {
-        const response = await fetch('/history?pdf=1', { headers: authHeaders() }); if (response.status === 403) { switchTab('settings'); openSubView('setting-premium'); return; } if (!response.ok) throw new Error('history');
-        const all = await response.json(); let filtered = all.filter((q) => selectedSubjects.includes(q.subject)); if (filtered.length === 0) { showToast('Seçtiğin derslerde arşivde soru yok.'); return; } filtered = filtered.sort(() => 0.5 - Math.random()).slice(0, count);
+        const response = await fetch('/history?pdf=1', { headers: authHeaders() }); 
+        if (response.status === 403) { switchTab('settings'); openSubView('setting-premium'); return; } 
+        if (!response.ok) throw new Error('history');
         
-        pdfContainer = document.createElement('div'); pdfContainer.style.cssText = 'width:794px;padding:40px;background:#fff;color:#000;font-family:Inter,Arial,sans-serif;position:fixed;top:0;left:0;z-index:9999;pointer-events:none;';
-        let html = `<div style="text-align:center;margin-bottom:30px;border-bottom:2px solid #000;padding-bottom:10px"><h1 style="margin:0">YKS Sorumatik</h1><p>Kişiselleştirilmiş Deneme Testi</p></div><h3>SORULAR</h3>`;
+        const all = await response.json(); 
+        let filtered = all.filter((q) => selectedSubjects.includes(q.subject)); 
+        if (filtered.length === 0) { showToast('Seçtiğin derslerde arşivde soru yok.'); return; } 
+        filtered = filtered.sort(() => 0.5 - Math.random()).slice(0, count);
         
+        // PDF Kapsayıcısını Ekranın Çok Dışına Taşı (Çakışmayı önler)
+        pdfContainer = document.createElement('div'); 
+        pdfContainer.style.cssText = 'width:794px; padding:40px; background:#ffffff !important; color:#000000 !important; font-family:Arial,sans-serif; position:absolute; left:-9999px; top:0; z-index:-1;';
+        
+        let html = `<div style="text-align:center; margin-bottom:30px; border-bottom:2px solid #000; padding-bottom:10px;"><h1 style="margin:0; color:#000;">YKS Sorumatik</h1><p style="color:#333;">Kişiselleştirilmiş Deneme Testi</p></div><h3 style="color:#000;">SORULAR</h3>`;
+        
+        // Sorular Kısmı
         filtered.forEach((q, i) => { 
-            let imgSrc = q.image; if (imgSrc && !imgSrc.startsWith('http') && !imgSrc.startsWith('data:')) { imgSrc = 'data:image/jpeg;base64,' + imgSrc; }
-            html += `<div style="margin-bottom:30px;page-break-inside:avoid"><strong>Soru ${i + 1} (${escapeHtml(q.subject)})</strong><br><img src="${imgSrc}" style="max-width:100%;max-height:400px;display:block;margin:10px 0"></div>`; 
+            let imgSrc = q.image; 
+            if (imgSrc && !imgSrc.startsWith('http') && !imgSrc.startsWith('data:')) { imgSrc = 'data:image/jpeg;base64,' + imgSrc; }
+            html += `<div style="margin-bottom:30px; page-break-inside:avoid; color:#000;"><strong style="color:#000;">Soru ${i + 1} (${escapeHtml(q.subject)})</strong><br><img src="${imgSrc}" style="max-width:100%; max-height:400px; display:block; margin:10px 0; border:1px solid #ccc;"></div>`; 
         });
-        html += `<div style="page-break-before:always"><h3 style="border-top:2px solid #000;padding-top:20px">ÇÖZÜMLER</h3>`;
-        filtered.forEach((q, i) => { html += `<div style="margin-bottom:30px;page-break-inside:avoid"><strong>Soru ${i + 1} Çözümü</strong><div style="font-size:14px;line-height:1.6">${renderMarkdown(q.answer)}</div></div>`; }); html += `</div>`;
         
-        pdfContainer.innerHTML = html; document.body.appendChild(pdfContainer); renderMath(pdfContainer);
-        await Promise.all(Array.from(pdfContainer.querySelectorAll('img')).map((img) => img.decode ? img.decode().catch(() => { }) : Promise.resolve())); 
-        await new Promise((r) => setTimeout(r, 1500)); 
+        // Çözümler Kısmı
+        html += `<div style="page-break-before:always;"><h3 style="border-top:2px solid #000; padding-top:20px; color:#000;">ÇÖZÜMLER</h3>`;
+        filtered.forEach((q, i) => { 
+            html += `<div style="margin-bottom:30px; page-break-inside:avoid; color:#000;"><strong style="color:#000;">Soru ${i + 1} Çözümü</strong><div style="font-size:14px; line-height:1.6; color:#000;">${renderMarkdown(q.answer)}</div></div>`; 
+        }); 
+        html += `</div>`;
+        
+        pdfContainer.innerHTML = html; 
+        document.body.appendChild(pdfContainer); 
+        
+        // Formülleri render et
+        renderMath(pdfContainer);
+        
+        // 🚨 RESİMLERİN YÜKLENMESİNİ BEKLE (En Kritik Kısım)
+        const images = pdfContainer.querySelectorAll('img');
+        await Promise.all(Array.from(images).map(img => {
+            return new Promise(resolve => {
+                if (img.complete) { resolve(); } 
+                else {
+                    img.onload = resolve;
+                    img.onerror = resolve; // Hata olsa bile devam et
+                }
+            });
+        }));
+        
+        // Tarayıcının render işlemini bitirmesi için ekstra bekleme
+        await new Promise(r => setTimeout(r, 1500)); 
 
-        const opt = { margin: 10, filename: `YKS_Test_${Date.now()}.pdf`, image: { type: 'jpeg', quality: 0.95 }, html2canvas: { scale: 2, useCORS: true, scrollX: 0, scrollY: 0, backgroundColor: '#ffffff' }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['css', 'legacy'] } };
-        await html2pdf().set(opt).from(pdfContainer).save(); showToast('PDF indirildi. Bol şans! 💪');
-    } catch (error) { console.error(error); showToast('PDF oluşturulurken bir hata oluştu.'); } finally { if (pdfContainer && pdfContainer.parentNode) pdfContainer.parentNode.removeChild(pdfContainer); resetBtn(); }
+        // HTML2PDF Ayarları (Scale düşürüldü, bellek çökmesi engellendi)
+        const opt = { 
+            margin: 10, 
+            filename: `YKS_Test_${Date.now()}.pdf`, 
+            image: { type: 'jpeg', quality: 0.9 }, 
+            html2canvas: { 
+                scale: 1.5, // 2 yerine 1.5 yaptık, RAM çökmesini engeller
+                useCORS: true, 
+                scrollX: 0, 
+                scrollY: 0, 
+                backgroundColor: '#ffffff' 
+            }, 
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }, 
+            pagebreak: { mode: ['css', 'legacy'] } 
+        };
+        
+        await html2pdf().set(opt).from(pdfContainer).save(); 
+        showToast('PDF başarıyla indirildi! 💪');
+        
+    } catch (error) { 
+        console.error("PDF Hatası:", error); 
+        showToast('PDF oluşturulurken bir hata oluştu.'); 
+    } finally { 
+        if (pdfContainer && pdfContainer.parentNode) pdfContainer.parentNode.removeChild(pdfContainer); 
+        resetBtn(); 
+    }
 });
-
 $('quota-chip').addEventListener('click', () => { switchTab('settings'); openSubView('setting-premium'); });
 
 // ---------- Başlangıç ----------

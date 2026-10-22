@@ -74,17 +74,15 @@ function compressImage(file, maxSide = 1600, quality = 0.85) {
 let currentUtterance = null;
 window.toggleSpeak = function(btn) {
     const isReading = btn.dataset.reading === 'true';
-    window.speechSynthesis.cancel(); // Her zaman mevcut sesi durdur
+    window.speechSynthesis.cancel(); 
 
     if (isReading) {
-        // Susturma işlemi
         document.querySelectorAll('.read-aloud-btn').forEach(b => {
             b.innerHTML = '🔊'; b.dataset.reading = 'false'; b.style.color = 'var(--text-muted)';
         });
         return;
     }
 
-    // Yeni okuma başlat
     const text = btn.parentElement.innerText.replace('🔊', '').replace('⏹️', '').trim();
     if (!text) return;
 
@@ -129,7 +127,6 @@ function updateUI() {
     }
     if ($('my-referral-code')) $('my-referral-code').textContent = userStatus.referral_code || 'KOD-YOK';
     
-    // ADMIN BUTONUNU GÖSTER/GİZLE
     if ($('setting-admin-btn')) {
         $('setting-admin-btn').classList.toggle('hidden', userStatus.role !== 'admin');
     }
@@ -240,35 +237,73 @@ function openSubView(targetId) {
     if (targetId === 'setting-admin') {
         const el = $('admin-user-list');
         el.innerHTML = '<p class="muted small">Yükleniyor...</p>';
+        
+        window.adminAllUsers = [];
+        window.adminFilterActive = false;
+        if($('admin-filter-btn')) $('admin-filter-btn').textContent = 'Sadece Premium';
+
         fetch('/api/admin/stats', { headers: authHeaders() })
             .then(res => { if(!res.ok) throw new Error(); return res.json(); })
             .then(data => {
                 $('admin-total-users').textContent = data.total_users;
                 $('admin-premium-users').textContent = data.premium_users;
+                $('admin-total-revenue').textContent = data.total_revenue + ' ₺';
                 
-                if (data.recent_users.length === 0) { el.innerHTML = '<p class="muted small">Kayıtlı kullanıcı yok.</p>'; return; }
-                
-                el.innerHTML = data.recent_users.map(u => {
-                    const isPrem = (u.premium_until > Date.now()/1000) || u.role === 'admin';
-                    const premText = isPrem ? '<span style="color:var(--neon-blue);">💎 Premium</span>' : '<span class="muted">🆓 Ücretsiz</span>';
-                    return `
-                    <div style="display:flex; justify-content:space-between; padding:8px; background:rgba(0,0,0,0.2); border-radius:8px; font-size:13px;">
-                        <div>
-                            <div style="font-weight:600;">${escapeHtml(u.name || 'İsimsiz')} ${u.role==='admin'?'(Admin)':''}</div>
-                            <div class="muted small">${escapeHtml(u.email)}</div>
-                        </div>
-                        <div style="text-align:right;">
-                            ${premText}
-                            <div class="muted small" style="margin-top:4px;">${new Date(u.created_at).toLocaleDateString('tr-TR')}</div>
-                        </div>
-                    </div>`;
-                }).join('');
+                window.adminAllUsers = data.recent_users;
+                renderAdminUserList();
             })
             .catch(() => { el.innerHTML = '<p class="muted small" style="color:var(--coral);">İstatistikler yüklenemedi.</p>'; });
     }
 }
 document.querySelectorAll('.setting-item').forEach(item => item.addEventListener('click', () => openSubView(item.dataset.target)));
 document.querySelectorAll('.back-btn').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.back)));
+
+// ---------- ADMIN LİSTELEME VE FİLTRELEME ----------
+function renderAdminUserList() {
+    const el = $('admin-user-list');
+    if (!window.adminAllUsers) return;
+    
+    let filtered = window.adminAllUsers;
+    if (window.adminFilterActive) {
+        filtered = window.adminAllUsers.filter(u => (u.premium_until > Date.now()/1000) || u.role === 'admin');
+    }
+    
+    if (filtered.length === 0) { el.innerHTML = '<p class="muted small">Kullanıcı bulunamadı.</p>'; return; }
+    
+    el.innerHTML = filtered.map(u => {
+        const isPrem = (u.premium_until > Date.now()/1000) || u.role === 'admin';
+        
+        let premText = '<span class="muted">🆓 Ücretsiz</span>';
+        if (u.role === 'admin') {
+            premText = '<span style="color:var(--neon-blue);">💎 Sınırsız (Admin)</span>';
+        } else if (isPrem) {
+            const daysLeft = Math.ceil((u.premium_until * 1000 - Date.now()) / (1000 * 60 * 60 * 24));
+            premText = `<span style="color:var(--neon-blue);">💎 ${daysLeft} gün kaldı</span>`;
+        }
+
+        return `
+        <div style="display:flex; justify-content:space-between; padding:8px; background:rgba(0,0,0,0.2); border-radius:8px; font-size:13px;">
+            <div>
+                <div style="font-weight:600;">${escapeHtml(u.name || 'İsimsiz')} ${u.role==='admin'?'(Admin)':''}</div>
+                <div class="muted small">${escapeHtml(u.email)}</div>
+            </div>
+            <div style="text-align:right;">
+                ${premText}
+                <div class="muted small" style="margin-top:4px;">Kayıt: ${new Date(u.created_at).toLocaleDateString('tr-TR')}</div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+document.addEventListener('click', (e) => {
+    if (e.target && e.target.id === 'admin-filter-btn') {
+        window.adminFilterActive = !window.adminFilterActive;
+        e.target.textContent = window.adminFilterActive ? 'Tümünü Göster' : 'Sadece Premium';
+        e.target.style.borderColor = window.adminFilterActive ? 'var(--neon-blue)' : 'var(--glass-border)';
+        e.target.style.color = window.adminFilterActive ? 'var(--neon-blue)' : 'var(--text)';
+        renderAdminUserList();
+    }
+});
 
 // ---------- GERİ SAYIM ----------
 let countdownInterval = null;
@@ -491,28 +526,4 @@ $('generate-pdf-btn').addEventListener('click', async () => {
     btn.textContent = 'Hazırlanıyor... ⏳'; btn.disabled = true; let pdfContainer;
     try {
         const response = await fetch('/history?pdf=1', { headers: authHeaders() }); if (response.status === 403) { switchTab('settings'); openSubView('setting-premium'); return; } if (!response.ok) throw new Error('history');
-        const all = await response.json(); let filtered = all.filter((q) => selectedSubjects.includes(q.subject)); if (filtered.length === 0) { showToast('Seçtiğin derslerde arşivde soru yok.'); return; } filtered = filtered.sort(() => 0.5 - Math.random()).slice(0, count);
-        
-        pdfContainer = document.createElement('div'); pdfContainer.style.cssText = 'width:794px;padding:40px;background:#fff;color:#000;font-family:Inter,Arial,sans-serif;position:fixed;top:0;left:0;z-index:9999;pointer-events:none;';
-        let html = `<div style="text-align:center;margin-bottom:30px;border-bottom:2px solid #000;padding-bottom:10px"><h1 style="margin:0">YKS Sorumatik</h1><p>Kişiselleştirilmiş Deneme Testi</p></div><h3>SORULAR</h3>`;
-        
-        filtered.forEach((q, i) => { 
-            let imgSrc = q.image; if (imgSrc && !imgSrc.startsWith('http') && !imgSrc.startsWith('data:')) { imgSrc = 'data:image/jpeg;base64,' + imgSrc; }
-            html += `<div style="margin-bottom:30px;page-break-inside:avoid"><strong>Soru ${i + 1} (${escapeHtml(q.subject)})</strong><br><img src="${imgSrc}" style="max-width:100%;max-height:400px;display:block;margin:10px 0"></div>`; 
-        });
-        html += `<div style="page-break-before:always"><h3 style="border-top:2px solid #000;padding-top:20px">ÇÖZÜMLER</h3>`;
-        filtered.forEach((q, i) => { html += `<div style="margin-bottom:30px;page-break-inside:avoid"><strong>Soru ${i + 1} Çözümü</strong><div style="font-size:14px;line-height:1.6">${renderMarkdown(q.answer)}</div></div>`; }); html += `</div>`;
-        
-        pdfContainer.innerHTML = html; document.body.appendChild(pdfContainer); renderMath(pdfContainer);
-        await Promise.all(Array.from(pdfContainer.querySelectorAll('img')).map((img) => img.decode ? img.decode().catch(() => { }) : Promise.resolve())); 
-        await new Promise((r) => setTimeout(r, 1500)); 
-
-        const opt = { margin: 10, filename: `YKS_Test_${Date.now()}.pdf`, image: { type: 'jpeg', quality: 0.95 }, html2canvas: { scale: 2, useCORS: true, scrollX: 0, scrollY: 0, backgroundColor: '#ffffff' }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['css', 'legacy'] } };
-        await html2pdf().set(opt).from(pdfContainer).save(); showToast('PDF indirildi. Bol şans! 💪');
-    } catch (error) { console.error(error); showToast('PDF oluşturulurken bir hata oluştu.'); } finally { if (pdfContainer && pdfContainer.parentNode) pdfContainer.parentNode.removeChild(pdfContainer); resetBtn(); }
-});
-
-$('quota-chip').addEventListener('click', () => { switchTab('settings'); openSubView('setting-premium'); });
-
-// ---------- Başlangıç ----------
-fetchStatus().then(() => { renderStats(); startCountdown(); });
+        const all = await response.json(); let filtered = all.filter((q) => selectedSubjects.includes(q.subject)); if (filtered.length === 0) { showToast('Seçtiğin derslerde arşiv

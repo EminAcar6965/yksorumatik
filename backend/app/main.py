@@ -88,18 +88,12 @@ def get_user(request: Request, response: Response):
     return user
 
 def get_status(user):
-    # ADMIN KONTROLÜ: Admin ise sınırsız premium ver
     if user.get("role") == "admin":
         return {
-            "is_premium": True,
-            "remaining": 9999,
-            "plan": "Sınırsız Admin",
-            "premium_until": 9999999999, # 2286 yılı
-            "email": user.get("email", ""),
-            "name": user.get("name", ""),
-            "role": "admin",
-            "referral_code": user.get("referral_code", ""),
-            "bonus_quota": 9999
+            "is_premium": True, "remaining": 9999, "plan": "Sınırsız Admin",
+            "premium_until": 9999999999, "email": user.get("email", ""),
+            "name": user.get("name", ""), "role": "admin",
+            "referral_code": user.get("referral_code", ""), "bonus_quota": 9999
         }
 
     is_premium = (user.get("premium_until") or 0) > time.time()
@@ -118,13 +112,14 @@ def get_status(user):
     }
 
 def consume_quota(uid, user):
-    if user.get("role") == "admin": return # Admin hakkı bitmez
+    if user.get("role") == "admin": return
     used = user.get("used_count", 0) if user.get("used_date") == today() else 0
     supabase.table("users").update({"used_date": today(), "used_count": used + 1}).eq("uid", uid).execute()
 
 def ask_ai(system: str, contents: list, max_tokens: int = 4096) -> str:
     if not client: raise HTTPException(500, "GEMINI_API_KEY ayarlanmamış.")
     try:
+        # Model güncellendi
         response = client.models.generate_content(
             model='gemini-3.8-flash',
             config=types.GenerateContentConfig(system_instruction=system, max_output_tokens=max_tokens, temperature=0.6),
@@ -256,20 +251,34 @@ def admin_stats(request: Request, response: Response):
     user = get_user(request, response)
     if user.get("role") != "admin": raise HTTPException(403, "Yetkisiz erişim.")
     
-    res = supabase.table("users").select("email, name, created_at, premium_until, role").execute()
+    res = supabase.table("users").select("email, name, created_at, premium_until, role, plan").execute()
     users = res.data
     
-    # İstatistikleri hesapla
     total_users = len([u for u in users if u.get("email")])
-    premium_users = len([u for u in users if (u.get("premium_until") or 0) > time.time() or u.get("role") == "admin"])
+    premium_users = 0
+    total_revenue = 0
     
-    # Son 10 kaydı al (tarihe göre)
-    users_sorted = sorted([u for u in users if u.get("email")], key=lambda x: x.get("created_at", ""), reverse=True)[:20]
+    plan_prices = {"weekly": 49, "monthly": 149, "yearly": 1499}
+    now = time.time()
+    
+    for u in users:
+        if not u.get("email"): continue
+        is_prem = (u.get("premium_until") or 0) > now
+        if u.get("role") == "admin": is_prem = True
+            
+        if is_prem:
+            premium_users += 1
+            if u.get("role") != "admin":
+                plan = u.get("plan", "")
+                total_revenue += plan_prices.get(plan, 0)
+        
+    recent_users = sorted([u for u in users if u.get("email")], key=lambda x: x.get("created_at", ""), reverse=True)[:50]
     
     return {
         "total_users": total_users,
         "premium_users": premium_users,
-        "recent_users": users_sorted
+        "total_revenue": total_revenue,
+        "recent_users": recent_users
     }
 
 # --- Uygulama ---

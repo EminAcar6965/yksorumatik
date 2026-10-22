@@ -265,24 +265,32 @@
       </div>
     </section>
 
-    <!-- ADMIN PANELİ SAYFASI -->
+    <!-- ADMIN PANELİ SAYFASI (GÜNCELLENDİ) -->
     <section class="view" id="view-setting-admin">
       <div class="subpage-header">
         <button class="back-btn" data-back="settings">←</button>
         <h2>Admin Paneli 🛡️</h2>
       </div>
       
-      <div class="stat-grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 16px;">
+      <!-- 3 Sütunlu İstatistik Kartları -->
+      <div class="stat-grid" style="grid-template-columns: 1fr 1fr 1fr; margin-bottom: 16px;">
         <div class="glass-card stat">
-            <div class="stat-ico">👥</div><div class="stat-val" id="admin-total-users">0</div><div class="muted small">Toplam Kullanıcı</div>
+            <div class="stat-ico">👥</div><div class="stat-val" id="admin-total-users">0</div><div class="muted small">Kullanıcı</div>
         </div>
         <div class="glass-card stat">
-            <div class="stat-ico">💎</div><div class="stat-val" id="admin-premium-users">0</div><div class="muted small">Premium Kullanıcı</div>
+            <div class="stat-ico">💎</div><div class="stat-val" id="admin-premium-users">0</div><div class="muted small">Premium</div>
+        </div>
+        <div class="glass-card stat" style="border-color: var(--accent);">
+            <div class="stat-ico">💰</div><div class="stat-val" id="admin-total-revenue" style="color:var(--accent);">0 ₺</div><div class="muted small">Ciro</div>
         </div>
       </div>
 
       <div class="glass-card">
-        <div class="card-title">Son Kayıt Olanlar</div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <div class="card-title" style="margin:0;">Son Kayıt Olanlar</div>
+            <!-- Filtre Butonu -->
+            <button id="admin-filter-btn" class="ghost-btn" style="padding:6px 12px; font-size:12px;">Sadece Premium</button>
+        </div>
         <div id="admin-user-list" style="display:flex; flex-direction:column; gap:8px;"></div>
       </div>
     </section>

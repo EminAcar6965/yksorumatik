@@ -335,15 +335,69 @@
       </div>
     </section>
 
+        <!-- YASAL BİLGİLER SAYFASI (DETAYLANDIRILDI) -->
     <section class="view" id="view-setting-legal">
-      <div class="subpage-header"><button class="back-btn" data-back="settings">←</button><h2>Yasal Bilgiler</h2></div>
-      <div class="glass-card" style="font-size: 13px; line-height: 1.6; color: var(--text-muted);">
-        <h3 style="color:var(--text-main); margin-bottom:8px;">Gizlilik Politikası</h3>
-        <p>Kişisel verileriniz (e-posta, fotoğraflar) sadece size hizmet vermek amacıyla güvenli sunucularda (Supabase ve Cloudflare R2) saklanır. Üçüncü şahıslarla paylaşılmaz.</p>
-        <h3 style="color:var(--text-main); margin:16px 0 8px;">Kullanım Koşulları</h3>
-        <p>Sorumatik AI, eğitim amaçlı bir yapay zeka asistanıdır. Verdiği cevaplar bilgilendirme amaçlıdır, resmi bir öğretmen yerine geçmez. Sitede hukuka aykırı içerik paylaşılması yasaktır.</p>
-        <h3 style="color:var(--text-main); margin:16px 0 8px;">Mesafeli Satış Sözleşmesi</h3>
-        <p>Premium üyelikler dijital hizmet olup, satın alım sonrası 14 gün içinde iade talep edilebilir. Abonelik iptalleri bir sonraki dönem için geçerlidir.</p>
+      <div class="subpage-header">
+        <button class="back-btn" data-back="settings">←</button>
+        <h2>Yasal Bilgiler</h2>
+      </div>
+      
+      <div class="glass-card" style="font-size: 13px; line-height: 1.6; color: var(--text-muted); padding-bottom: 30px;">
+        
+        <!-- 1. BÖLÜM: GİZLİLİK POLİTİKASI -->
+        <h3 style="color:var(--text-main); margin-bottom:8px;">1. Gizlilik Politikası</h3>
+        <p style="margin-bottom: 16px;">
+          YKS Sorumatik olarak, kullanıcılarımızın kişisel verilerinin gizliliğine ve güvenliğine büyük önem veriyoruz. 
+          Platformumuzu kullanırken paylaştığınız e-posta adresi, ad-soyad, çözdüğünüz soru fotoğrafları ve yapay zeka ile etkileşimleriniz 
+          yüksek güvenlik standartlarına sahip sunucularda (Supabase veritabanı ve Cloudflare R2 depolama) şifreli olarak saklanmaktadır. 
+          Verileriniz asla üçüncü şahıslara, reklam şirketlerine veya diğer kurumlara satılmaz, kiralanmaz veya paylaşılmaz.
+        </p>
+
+        <!-- 2. BÖLÜM: KVKK AYDINLATMA METNİ -->
+        <h3 style="color:var(--text-main); margin-bottom:8px;">2. KVKK Aydınlatma Metni</h3>
+        <p style="margin-bottom: 16px;">
+          6698 sayılı Kişisel Verilerin Korunması Kanunu (KVKK) uyarınca, kişisel verileriniz aşağıdaki amaçlarla işlenmektedir:
+          <br>• <strong>Veri Sorumlusu:</strong> YKS Sorumatik (Emin Acar).
+          <br>• <strong>İşleme Amacı:</strong> Üyelik işlemlerinin gerçekleştirilmesi, yapay zeka hizmetlerinin sunulması, kullanıcı deneyiminin iyileştirilmesi ve yasal yükümlülüklerin yerine getirilmesi.
+          <br>• <strong>Veri Aktarımı:</strong> Verileriniz, hizmetin sağlanabilmesi için yalnızca altyapı sağlayıcılarımız (Supabase, Cloudflare, Google AI) ile sınırlı olarak paylaşılmaktadır.
+          <br>• <strong>Haklarınız:</strong> KVKK Madde 11 kapsamında verilerinizin silinmesini, düzeltilmesini veya işlenmesinin durdurulmasını talep etme hakkına sahipsiniz. İletişim: <em>destek@sorumatik.com.tr</em>
+        </p>
+
+        <!-- 3. BÖLÜM: KULLANIM KOŞULLARI -->
+        <h3 style="color:var(--text-main); margin-bottom:8px;">3. Kullanım Koşulları</h3>
+        <p style="margin-bottom: 16px;">
+          Platformumuza erişim sağlayarak aşağıdaki koşulları kabul etmiş sayılırsınız:
+          <br>• <strong>Hizmet Kapsamı:</strong> YKS Sorumatik, yapay zeka destekli bir soru çözüm ve analiz platformudur. Verilen cevaplar eğitim amaçlıdır ve kesin doğruluk garantisi taşımaz.
+          <br>• <strong>Sorumluluk:</strong> Yapay zekanın ürettiği çözümlerin nihai doğruluğundan kullanıcı sorumludur. Platform, sınav sonuçlarından veya eğitim materyallerinin kullanımından doğacak sonuçlardan sorumlu tutulamaz.
+          <br>• <strong>Kötüye Kullanım:</strong> Sistemi hacklemek, otomatik botlarla sorgu atmak, müstehcen veya yasa dışı içerikli görseller yüklemek hesabınızın kalıcı olarak kapatılmasına neden olur.
+        </p>
+
+        <!-- 4. BÖLÜM: MESAFELİ SATIŞ SÖZLEŞMESİ -->
+        <h3 style="color:var(--text-main); margin-bottom:8px;">4. Mesafeli Satış Sözleşmesi</h3>
+        <p style="margin-bottom: 16px;">
+          <strong>Madde 1 - Taraflar:</strong> Satıcı, YKS Sorumatik platformunu işleten gerçek/tüzel kişidir. Alıcı, platform üzerinden Premium üyelik satın alan kullanıcıdır.
+          <br><strong>Madde 2 - Konu:</strong> İşbu sözleşme, Alıcı'nın Satıcı'ya ait dijital platformdan elektronik ortamda satın aldığı Premium Üyelik hizmetinin sunulmasına ilişkin tarafların hak ve yükümlülüklerini düzenler.
+          <br><strong>Madde 3 - Hizmetin İfası:</strong> Dijital ürün niteliğindeki Premium üyelik, ödemenin onaylanmasının ardından anında (elektronik ortamda) Alıcı'nın hesabına tanımlanır. Fiziksel teslimat söz konusu değildir.
+        </p>
+
+        <!-- 5. BÖLÜM: İADE VE CAYMA HAKKI -->
+        <h3 style="color:var(--text-main); margin-bottom:8px;">5. İade ve Cayma Hakkı Koşulları</h3>
+        <p style="margin-bottom: 16px;">
+          <strong>Önemli Uyarı:</strong> Mesafeli Sözleşmeler Yönetmeliği'nin 15/1-ğ maddesi uyarınca; "Elektronik ortamda anında ifa edilen hizmetler veya tüketiciye anında teslim edilen gayri maddi mallara ilişkin sözleşmelerde cayma hakkı kullanılamaz." 
+          <br><br>
+          Dijital içerik ve anında ifa edilen hizmet (Premium üyelik) niteliğinde olması sebebiyle, <strong>hizmetin ifasına başlandıktan sonra (Premium üyelik aktif edildikten sonra) cayma ve iade hakkı bulunmamaktadır.</strong> 
+          <br>Ancak, teknik bir hata nedeniyle hizmete erişim sağlanamaması durumunda, durumun destek ekibimize iletilmesi halinde (14 gün içinde) üyelik süresi uzatılır veya iade değerlendirmesi yapılır.
+        </p>
+
+        <!-- İLETİŞİM -->
+        <h3 style="color:var(--text-main); margin: 24px 0 8px; border-top: 1px solid var(--glass-border); padding-top: 16px;">İletişim</h3>
+        <p>
+          Yasal süreçler, iade talepleri ve diğer tüm konular için bize aşağıdaki kanallardan ulaşabilirsiniz:
+          <br>• <strong>E-posta:</strong> destek@sorumatik.com.tr
+          <br>• <strong>WhatsApp Destek:</strong> +90 505 101 69 65
+          <br>• <strong>Web:</strong> https://yksorumatik.com.tr
+        </p>
+
       </div>
     </section>
   </main>

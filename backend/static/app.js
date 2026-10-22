@@ -397,10 +397,21 @@ async function askFollowup(text) {
         typing.remove(); thread.history.push({ role: 'user', content: text }, { role: 'assistant', content: data.answer }); addAiMarkdown(chatHistory, data.answer); addFeedbackRow(); applyStatus(data);
     } catch (err) { typing.remove(); if (err.status === 403) { showToast('Hakkın doldu.'); switchTab('settings'); openSubView('setting-premium'); } addMessage(chatHistory, { role: 'ai', body: escapeHtml(err.message), cls: 'error' }); } finally { setSending(false); scrollEnd(chatHistory); }
 }
-
 function addFeedbackRow() {
-    const row = document.createElement('div'); row.className = 'feedback-row'; row.innerHTML = `<span class="muted small">Anlatım net oldu mu?</span><button type="button" class="yes">✅ Anlaşıldı</button><button type="button" class="no">🤔 Anlaşılmadı</button>`;
-    chatHistory.appendChild(row); scrollEnd(chatHistory); row.querySelector('.yes').addEventListener('click', () => { row.remove(); onUnderstood(); }); row.querySelector('.no').addEventListener('click', () => { row.remove(); onNotUnderstood(); });
+    const row = document.createElement('div'); 
+    row.className = 'feedback-row';
+    
+    // Sadeleştirilmiş ve temiz HTML
+    row.innerHTML = `
+        <span class="feedback-text">Anlatım net oldu mu?</span>
+        <button type="button" class="fb yes">✅ Anlaşıldı</button>
+        <button type="button" class="fb no">🤔 Anlaşılmadı</button>`;
+        
+    chatHistory.appendChild(row); 
+    scrollEnd(chatHistory);
+    
+    row.querySelector('.yes').addEventListener('click', () => { row.remove(); onUnderstood(); });
+    row.querySelector('.no').addEventListener('click', () => { row.remove(); onNotUnderstood(); });
 }
 
 const PRAISE = ['Harika! Bu soru artık senin. 💪', 'Süper! Netlerin artıyor. 🎉', 'Tamamdır, bir soruyu daha hallettik! 🚀'];

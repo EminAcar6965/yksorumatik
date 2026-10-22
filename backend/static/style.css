@@ -173,3 +173,82 @@ input[type="date"] { color-scheme: dark; width: 100%; padding: 12px; border-radi
 .modal { position: fixed; inset: 0; z-index: 1500; background: rgba(0,0,0,.65); display: flex; align-items: center; justify-content: center; padding: 20px; }
 .modal-box { background: var(--bg2); border: 1px solid var(--glass-border); border-radius: 20px; padding: 24px; max-width: 380px; width: 100%; text-align: center; }
 .modal-box h3 { margin: 6px 0; }
+/* --- GERİ BİLDİRİM BUTONLARI --- */
+.feedback-row {
+    display: flex; 
+    flex-wrap: wrap; 
+    align-items: center; 
+    gap: 8px; 
+    margin-left: 46px; 
+    margin-top: 8px;
+}
+.feedback-text {
+    font-size: 12px; 
+    color: var(--text-muted); 
+    width: 100%; 
+    margin-bottom: 4px;
+}
+.fb {
+    padding: 8px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--glass-border);
+    background: var(--glass-bg);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+.fb.yes { 
+    border-color: #10b981; 
+    color: #10b981; 
+    background: rgba(16, 185, 129, 0.1); 
+}
+.fb.no { 
+    border-color: #f59e0b; 
+    color: #f59e0b; 
+    background: rgba(245, 158, 11, 0.1); 
+}
+.fb:hover { 
+    background: rgba(255,255,255,0.1); 
+    transform: translateY(-2px);
+}/* --- GERİ BİLDİRİM BUTONLARI --- */
+.feedback-row {
+    display: flex; 
+    flex-wrap: wrap; 
+    align-items: center; 
+    gap: 8px; 
+    margin-left: 46px; 
+    margin-top: 8px;
+}
+.feedback-text {
+    font-size: 12px; 
+    color: var(--text-muted); 
+    width: 100%; 
+    margin-bottom: 4px;
+}
+.fb {
+    padding: 8px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--glass-border);
+    background: var(--glass-bg);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+.fb.yes { 
+    border-color: #10b981; 
+    color: #10b981; 
+    background: rgba(16, 185, 129, 0.1); 
+}
+.fb.no { 
+    border-color: #f59e0b; 
+    color: #f59e0b; 
+    background: rgba(245, 158, 11, 0.1); 
+}
+.fb:hover { 
+    background: rgba(255,255,255,0.1); 
+    transform: translateY(-2px);
+}

@@ -109,20 +109,23 @@ def consume_quota(uid, user):
     used = user.get("used_count", 0) if user.get("used_date") == today() else 0
     supabase.table("users").update({"used_date": today(), "used_count": used + 1}).eq("uid", uid).execute()
 
-def ask_ai(system: str, contents: list, max_tokens: int = 2000) -> str:
+def ask_ai(system: str, contents: list, max_tokens: int = 4096) -> str: # Limiti 4096 yaptık
     if not client: raise HTTPException(500, "GEMINI_API_KEY ayarlanmamış.")
     try:
-        # Modeli gemini-1.5-flash olarak sabitledik. Ücretli sürüme geçince hızlanacak.
         response = client.models.generate_content(
             model='gemini-3.8-flash',
             config=types.GenerateContentConfig(system_instruction=system, max_output_tokens=max_tokens, temperature=0.6),
             contents=contents
         )
+        
+        # Eğer cevap limitten dolayı kesildiyse kullanıcıya bilgi ver
+        if response.candidates and response.candidates[0].finish_reason == "MAX_TOKENS":
+            return response.text + "\n\n*(Not: Cevap çok uzun olduğu için burada kesildi kardeşim. Devam etmemi istersen 'devam et' yazabilirsin.)*"
+            
         return response.text
     except Exception as e:
         print(f"🔥 YAPAY ZEKA HATASI: {e}")
         raise HTTPException(502, f"Yapay Zeka Hatası: {str(e)}")
-
 def prepare_image(raw: bytes) -> bytes:
     try:
         img = Image.open(io.BytesIO(raw)); img = ImageOps.exif_transpose(img).convert("RGB"); img.thumbnail((1600, 1600))

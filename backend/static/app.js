@@ -546,26 +546,7 @@ $('generate-pdf-btn').addEventListener('click', async () => {
     const count = clampCount(countInput.value);
     
     if (selectedSubjects.length === 0) { showToast('En az bir ders seçmelisin.'); return; }
-    
-    btn.textContent = 'Hazırlanıyor... ⏳'; btn.disabled = true; 
-    let pdfContainer;
-    
-    try {
-        const response = await fetch('/history?pdf=1', { headers: authHeaders() }); 
-        if (response.status === 403) { switchTab('settings'); openSubView('setting-premium'); return; } 
-        if (!response.ok) throw new Error('history');
-        
-        const all = await response.json(); 
-        let filtered = all.filter((q) => selectedSubjects.includes(q.subject)); 
-        if (filtered.length === 0) { showToast('Seçtiğin derslerde arşivde soru yok.'); return; } 
-        filtered = filtered.sort(() => 0.5 - Math.random()).slice(0, count);
-        
-        // PDF Kapsayıcısını Ekranın Çok Dışına Taşı (Çakışmayı önler)
-        pdfContainer = document.createElement('div'); 
-        pdfContainer.style.cssText = 'width:794px; padding:40px; background:#ffffff !important; color:#000000 !important; font-family:Arial,sans-serif; position:absolute; left:-9999px; top:0; z-index:-1;';
-        
-        let html = `<div style="text-align:center; margin-bottom:30px; border-bottom:2px solid #000; padding-bottom:10px;"><h1 style="margin:0; color:#000;">YKS Sorumatik</h1><p style="color:#333;">Kişiselleştirilmiş Deneme Testi</p></div><h3 style="color:#000;">SORULAR</h3>`;
-        $('generate-pdf-btn').addEventListener('click', async () => {
+    $('generate-pdf-btn').addEventListener('click', async () => {
     if (!userStatus.is_premium) { switchTab('settings'); openSubView('setting-premium'); return; }
     
     const btn = $('generate-pdf-btn'); 
@@ -588,9 +569,9 @@ $('generate-pdf-btn').addEventListener('click', async () => {
         if (filtered.length === 0) { showToast('Seçtiğin derslerde arşivde soru yok.'); return; } 
         filtered = filtered.sort(() => 0.5 - Math.random()).slice(0, count);
         
-        // Kapsayıcıyı Ekranda Görünür Ama Arka Planda Tut (En Kritik Düzeltme)
+        // PDF Kapsayıcısını Ekran Dışına Taşı (Ama Görünür Bırak)
         pdfContainer = document.createElement('div'); 
-        pdfContainer.style.cssText = 'width:794px; padding:40px; background:#ffffff; color:#000000; font-family:Arial,sans-serif; position:fixed; top:0; left:0; z-index:-9999; opacity:0; pointer-events:none;';
+        pdfContainer.style.cssText = 'width:800px; padding:40px; background:#ffffff; color:#000000; font-family:Arial,sans-serif; position:absolute; top:0; left:-9999px; z-index:-9999;';
         
         let html = `<div style="text-align:center; margin-bottom:30px; border-bottom:2px solid #000; padding-bottom:10px;"><h1 style="margin:0; color:#000;">YKS Sorumatik</h1><p style="color:#333;">Kişiselleştirilmiş Deneme Testi</p></div><h3 style="color:#000;">SORULAR</h3>`;
         
@@ -619,13 +600,21 @@ $('generate-pdf-btn').addEventListener('click', async () => {
             });
         }));
         
-        // Render işlemi için ekstra bekle
+        // Tarayıcının render işlemini bitirmesi için bekle
         await new Promise(r => setTimeout(r, 1000)); 
 
-        // Doğrudan html2canvas ve jspdf kullan
-        const canvas = await html2canvas(pdfContainer, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+        // DOĞRUDAN HTML2CANVAS VE JSPDF KULLANIMI
+        const canvas = await html2canvas(pdfContainer, { 
+            scale: 2, 
+            useCORS: true, 
+            backgroundColor: '#ffffff',
+            windowWidth: 800,
+            windowHeight: pdfContainer.scrollHeight
+        });
+        
         const imgData = canvas.toDataURL('image/jpeg', 0.95);
         
+        // jsPDF Başlat
         const { jsPDF } = window.jspdf;
         const pdf = new jsPDF('p', 'mm', 'a4');
         const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -634,10 +623,11 @@ $('generate-pdf-btn').addEventListener('click', async () => {
         let heightLeft = pdfHeight;
         let position = 0;
         
+        // İlk sayfayı ekle
         pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
         heightLeft -= pdfHeight;
         
-        // Sayfa bölme işlemi
+        // Sayfa yetmediği sürece yeni sayfa ekle
         while (heightLeft > 0) {
             position = heightLeft - pdfHeight;
             pdf.addPage();

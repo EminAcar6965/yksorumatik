@@ -114,7 +114,7 @@ def ask_ai(system: str, contents: list, max_tokens: int = 2000) -> str:
     try:
         # Modeli gemini-1.5-flash olarak sabitledik. Ücretli sürüme geçince hızlanacak.
         response = client.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-3.8-flash',
             config=types.GenerateContentConfig(system_instruction=system, max_output_tokens=max_tokens, temperature=0.6),
             contents=contents
         )

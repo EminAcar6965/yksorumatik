@@ -565,15 +565,41 @@ $('generate-pdf-btn').addEventListener('click', async () => {
         pdfContainer.style.cssText = 'width:794px; padding:40px; background:#ffffff !important; color:#000000 !important; font-family:Arial,sans-serif; position:absolute; left:-9999px; top:0; z-index:-1;';
         
         let html = `<div style="text-align:center; margin-bottom:30px; border-bottom:2px solid #000; padding-bottom:10px;"><h1 style="margin:0; color:#000;">YKS Sorumatik</h1><p style="color:#333;">Kişiselleştirilmiş Deneme Testi</p></div><h3 style="color:#000;">SORULAR</h3>`;
+        $('generate-pdf-btn').addEventListener('click', async () => {
+    if (!userStatus.is_premium) { switchTab('settings'); openSubView('setting-premium'); return; }
+    
+    const btn = $('generate-pdf-btn'); 
+    const resetBtn = () => { btn.textContent = 'PDF İndir 📥'; btn.disabled = false; }; 
+    const selectedSubjects = Array.from(document.querySelectorAll('#pdf-subjects input:checked')).map((cb) => cb.value); 
+    const count = clampCount(countInput.value);
+    
+    if (selectedSubjects.length === 0) { showToast('En az bir ders seçmelisin.'); return; }
+    
+    btn.textContent = 'Hazırlanıyor... ⏳'; btn.disabled = true; 
+    let pdfContainer;
+    
+    try {
+        const response = await fetch('/history?pdf=1', { headers: authHeaders() }); 
+        if (response.status === 403) { switchTab('settings'); openSubView('setting-premium'); return; } 
+        if (!response.ok) throw new Error('history');
         
-        // Sorular Kısmı
+        const all = await response.json(); 
+        let filtered = all.filter((q) => selectedSubjects.includes(q.subject)); 
+        if (filtered.length === 0) { showToast('Seçtiğin derslerde arşivde soru yok.'); return; } 
+        filtered = filtered.sort(() => 0.5 - Math.random()).slice(0, count);
+        
+        // Kapsayıcıyı Ekranda Görünür Ama Arka Planda Tut (En Kritik Düzeltme)
+        pdfContainer = document.createElement('div'); 
+        pdfContainer.style.cssText = 'width:794px; padding:40px; background:#ffffff; color:#000000; font-family:Arial,sans-serif; position:fixed; top:0; left:0; z-index:-9999; opacity:0; pointer-events:none;';
+        
+        let html = `<div style="text-align:center; margin-bottom:30px; border-bottom:2px solid #000; padding-bottom:10px;"><h1 style="margin:0; color:#000;">YKS Sorumatik</h1><p style="color:#333;">Kişiselleştirilmiş Deneme Testi</p></div><h3 style="color:#000;">SORULAR</h3>`;
+        
         filtered.forEach((q, i) => { 
             let imgSrc = q.image; 
             if (imgSrc && !imgSrc.startsWith('http') && !imgSrc.startsWith('data:')) { imgSrc = 'data:image/jpeg;base64,' + imgSrc; }
             html += `<div style="margin-bottom:30px; page-break-inside:avoid; color:#000;"><strong style="color:#000;">Soru ${i + 1} (${escapeHtml(q.subject)})</strong><br><img src="${imgSrc}" style="max-width:100%; max-height:400px; display:block; margin:10px 0; border:1px solid #ccc;"></div>`; 
         });
         
-        // Çözümler Kısmı
         html += `<div style="page-break-before:always;"><h3 style="border-top:2px solid #000; padding-top:20px; color:#000;">ÇÖZÜMLER</h3>`;
         filtered.forEach((q, i) => { 
             html += `<div style="margin-bottom:30px; page-break-inside:avoid; color:#000;"><strong style="color:#000;">Soru ${i + 1} Çözümü</strong><div style="font-size:14px; line-height:1.6; color:#000;">${renderMarkdown(q.answer)}</div></div>`; 
@@ -582,21 +608,54 @@ $('generate-pdf-btn').addEventListener('click', async () => {
         
         pdfContainer.innerHTML = html; 
         document.body.appendChild(pdfContainer); 
-        
-        // Formülleri render et
         renderMath(pdfContainer);
         
-        // 🚨 RESİMLERİN YÜKLENMESİNİ BEKLE (En Kritik Kısım)
+        // Tüm resimlerin tamamen yüklenmesini bekle
         const images = pdfContainer.querySelectorAll('img');
         await Promise.all(Array.from(images).map(img => {
             return new Promise(resolve => {
-                if (img.complete) { resolve(); } 
-                else {
-                    img.onload = resolve;
-                    img.onerror = resolve; // Hata olsa bile devam et
-                }
+                if (img.complete) resolve(); 
+                else { img.onload = resolve; img.onerror = resolve; }
             });
         }));
+        
+        // Render işlemi için ekstra bekle
+        await new Promise(r => setTimeout(r, 1000)); 
+
+        // Doğrudan html2canvas ve jspdf kullan
+        const canvas = await html2canvas(pdfContainer, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+        
+        let heightLeft = pdfHeight;
+        let position = 0;
+        
+        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
+        heightLeft -= pdfHeight;
+        
+        // Sayfa bölme işlemi
+        while (heightLeft > 0) {
+            position = heightLeft - pdfHeight;
+            pdf.addPage();
+            pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
+            heightLeft -= pdfHeight;
+        }
+        
+        pdf.save(`YKS_Test_${Date.now()}.pdf`); 
+        showToast('PDF başarıyla indirildi! 💪');
+        
+    } catch (error) { 
+        console.error("PDF Hatası:", error); 
+        showToast('PDF oluşturulurken bir hata oluştu.'); 
+    } finally { 
+        if (pdfContainer && pdfContainer.parentNode) pdfContainer.parentNode.removeChild(pdfContainer); 
+        resetBtn(); 
+    }
+});
         
         // Tarayıcının render işlemini bitirmesi için ekstra bekleme
         await new Promise(r => setTimeout(r, 1500)); 

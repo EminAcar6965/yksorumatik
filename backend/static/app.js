@@ -1,4 +1,3 @@
-
 'use strict';
 
 const $ = (id) => document.getElementById(id);
@@ -86,13 +85,21 @@ function applyStatus(data) {
 async function fetchStatus() {
     try {
         const res = await fetch('/api/status', { headers: authHeaders() });
-        if (res.ok) applyStatus(await res.json());
-    } catch (e) { console.error(e); }
+        if (res.ok) {
+            const data = await res.json();
+            applyStatus(data);
+        } else {
+            // API hata verse bile arayüzün "Yükleniyor"da kalmasını engelle
+            $('quota-text').textContent = 'Bağlantı Hatası'; 
+        }
+    } catch (e) { 
+        console.error("Durum çekilemedi:", e); 
+        $('quota-text').textContent = 'Bağlantı Hatası';
+    }
 }
 
 function updateUI() {
     const text = $('quota-text');
-    // Sağ üstteki 3 nokta yerine direkt kalan hakkı yazdırıyoruz
     if (userStatus.is_premium) { 
         text.textContent = 'Sınırsız 💎'; text.style.color = 'var(--neon-blue)'; 
     } else { 
@@ -166,7 +173,6 @@ $('btn-send-code').addEventListener('click', async () => {
     if (!email) { showToast('Önce e-posta girin.'); return; }
     try { 
         const res = await postJson('/api/send-code', { email, password: "dummy" }); 
-        // ARTIK LOGLARA YÖNLENDİRMİYOR, GERÇEK MESAJI GÖSTERİYOR
         showToast(res.message || 'Doğrulama kodu gönderildi!'); 
     } catch (err) { 
         showToast(err.message); 

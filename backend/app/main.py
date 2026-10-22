@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from supabase import create_client, Client
 import boto3
 from botocore.client import Config
-import resend # RESEND EKLENDİ
+import resend
 
 load_dotenv()
 
@@ -59,7 +59,14 @@ def get_user(request: Request, response: Response):
             uid = payload.get("uid")
             if uid:
                 res = supabase.table("users").select("*").eq("uid", uid).execute()
-                if res.data and len(res.data) > 0: return res.data[0]
+                if res.data and len(res.data) > 0: 
+                    user = res.data[0]
+                    # Eğer eski kullanıcıysa ve kodu yoksa, anında oluştur ve kaydet
+                    if not user.get("referral_code"):
+                        new_code = uid[:8].upper()
+                        supabase.table("users").update({"referral_code": new_code}).eq("uid", uid).execute()
+                        user["referral_code"] = new_code
+                    return user
         except Exception: pass
 
     uid = request.cookies.get("uid", "")
@@ -73,6 +80,11 @@ def get_user(request: Request, response: Response):
         user = new_user
     else:
         user = res.data[0]
+        # Anonim kullanıcı için de kod yoksa oluştur
+        if not user.get("referral_code"):
+            new_code = uid[:8].upper()
+            supabase.table("users").update({"referral_code": new_code}).eq("uid", uid).execute()
+            user["referral_code"] = new_code
 
     if is_new: response.set_cookie("uid", uid, max_age=60*60*24*365, samesite="Lax", httponly=True)
     return user
@@ -80,7 +92,7 @@ def get_user(request: Request, response: Response):
 def get_status(user):
     is_premium = (user.get("premium_until") or 0) > time.time()
     used = user.get("used_count", 0) if user.get("used_date") == today() else 0
-    bonus = user.get("bonus_quota", 0)
+    bonus = user.get("bonus_quota", 0) or 0 # None gelirse 0 yap
     return {
         "is_premium": is_premium,
         "remaining": max(0, DAILY_FREE + bonus - used),
@@ -100,6 +112,7 @@ def consume_quota(uid, user):
 def ask_ai(system: str, contents: list, max_tokens: int = 2000) -> str:
     if not client: raise HTTPException(500, "GEMINI_API_KEY ayarlanmamış.")
     try:
+        # Modeli gemini-1.5-flash olarak sabitledik. Ücretli sürüme geçince hızlanacak.
         response = client.models.generate_content(
             model='gemini-1.5-flash',
             config=types.GenerateContentConfig(system_instruction=system, max_output_tokens=max_tokens, temperature=0.6),
@@ -153,25 +166,23 @@ def send_code(body: AuthIn):
         
     print(f"🔥 DOĞRULAMA KODU ({email}): {code}")
     
-    # RESEND ENTEGRASYONU
     resend_api_key = os.getenv("RESEND_API_KEY", "")
     if not resend_api_key:
-        print("⚠️ RESEND_API_KEY Render'da ayarlanmamış! E-posta gönderilemedi.")
-        return {"ok": True, "message": "Kod oluşturuldu ancak e-posta sunucusu eksik. Lütfen yöneticiye bildirin."}
+        print("⚠️ RESEND_API_KEY Render'da ayarlanmamış!")
+        return {"ok": True, "message": "Kod oluşturuldu (Loglara bakın)."}
 
     try:
         resend.api_key = resend_api_key
         resend.Emails.send({
-            "from": "Sorumatik <noreply@yksorumatik.com.tr>", # Kendi domainin
+            "from": "Sorumatik <noreply@yksorumatik.com.tr>",
             "to": [email],
             "subject": "Sorumatik Doğrulama Kodu",
             "html": f"<p>Merhaba!</p><p>Sorumatik'e kayıt olmak için doğrulama kodun: <strong>{code}</strong></p><p>Bu kod 5 dakika geçerlidir.</p>"
         })
         print(f"✅ E-posta başarıyla gönderildi: {email}")
     except Exception as e:
-        print(f"❌ E-posta gönderim hatası (Resend): {e}")
-        # Hata olsa bile loglardan kodu görebilmesi için işlemi durdurmuyoruz.
-        return {"ok": True, "message": f"E-posta gönderilemedi: {str(e)}"}
+        print(f"❌ E-posta gönderim hatası: {e}")
+        return {"ok": True, "message": "Kod oluşturuldu (Loglara bakın)."}
         
     return {"ok": True, "message": "Doğrulama kodu e-postanıza gönderildi."}
 

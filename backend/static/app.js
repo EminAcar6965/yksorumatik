@@ -164,7 +164,13 @@ $('auth-switch').addEventListener('click', () => { authMode = authMode === 'logi
 $('btn-send-code').addEventListener('click', async () => {
     const email = $('auth-email').value.trim();
     if (!email) { showToast('Önce e-posta girin.'); return; }
-    try { await postJson('/api/send-code', { email, password: "dummy" }); showToast('Kod gönderildi! (Render loglarına bakın)'); } catch (err) { showToast(err.message); }
+    try { 
+        const res = await postJson('/api/send-code', { email, password: "dummy" }); 
+        // ARTIK LOGLARA YÖNLENDİRMİYOR, GERÇEK MESAJI GÖSTERİYOR
+        showToast(res.message || 'Doğrulama kodu gönderildi!'); 
+    } catch (err) { 
+        showToast(err.message); 
+    }
 });
 
 $('auth-submit').addEventListener('click', async () => {

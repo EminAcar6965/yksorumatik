@@ -1,4 +1,3 @@
-import resend 
 import os, uuid, time, base64, io, jwt, bcrypt, random, string
 from datetime import datetime, timezone, timedelta
 from typing import Optional
@@ -14,6 +13,7 @@ from pydantic import BaseModel
 from supabase import create_client, Client
 import boto3
 from botocore.client import Config
+import resend # RESEND EKLENDİ
 
 load_dotenv()
 
@@ -107,8 +107,8 @@ def ask_ai(system: str, contents: list, max_tokens: int = 2000) -> str:
         )
         return response.text
     except Exception as e:
-        print(f"AI Hatası: {e}")
-        raise HTTPException(502, f"Yapay zeka hatası: {str(e)}")
+        print(f"🔥 YAPAY ZEKA HATASI: {e}")
+        raise HTTPException(502, f"Yapay Zeka Hatası: {str(e)}")
 
 def prepare_image(raw: bytes) -> bytes:
     try:
@@ -151,27 +151,30 @@ def send_code(body: AuthIn):
     except Exception as e:
         print(f"Supabase Kod Kayıt Hatası: {e}")
         
-    print(f"🔥 DOĞRULAMA KODU ({email}): {code}") # Loglara yazmaya devam etsin (yedek)
+    print(f"🔥 DOĞRULAMA KODU ({email}): {code}")
     
-    # GERÇEK E-POSTA GÖNDERİMİ (RESEND)
+    # RESEND ENTEGRASYONU
     resend_api_key = os.getenv("RESEND_API_KEY", "")
-    if resend_api_key:
-        try:
-            resend.api_key = resend_api_key
-            resend.Emails.send({
-                "from": "Sorumatik <onboarding@resend.dev>", # Resend test domaini
-                "to": [email],
-                "subject": "Sorumatik Doğrulama Kodu",
-                "html": f"<p>Merhaba!</p><p>Sorumatik'e kayıt olmak için doğrulama kodun: <strong>{code}</strong></p><p>Bu kod 5 dakika geçerlidir.</p>"
-            })
-            print(f"✅ E-posta başarıyla gönderildi: {email}")
-        except Exception as e:
-            print(f"❌ E-posta gönderim hatası: {e}")
-            # E-posta gitmezse hata dönmesin, loglardan okusun diye devam ediyoruz
-    else:
-        print("⚠️ RESEND_API_KEY bulunamadı. E-posta gönderilemedi.")
+    if not resend_api_key:
+        print("⚠️ RESEND_API_KEY Render'da ayarlanmamış! E-posta gönderilemedi.")
+        return {"ok": True, "message": "Kod oluşturuldu ancak e-posta sunucusu eksik. Lütfen yöneticiye bildirin."}
+
+    try:
+        resend.api_key = resend_api_key
+        resend.Emails.send({
+            "from": "Sorumatik <noreply@yksorumatik.com.tr>", # Kendi domainin
+            "to": [email],
+            "subject": "Sorumatik Doğrulama Kodu",
+            "html": f"<p>Merhaba!</p><p>Sorumatik'e kayıt olmak için doğrulama kodun: <strong>{code}</strong></p><p>Bu kod 5 dakika geçerlidir.</p>"
+        })
+        print(f"✅ E-posta başarıyla gönderildi: {email}")
+    except Exception as e:
+        print(f"❌ E-posta gönderim hatası (Resend): {e}")
+        # Hata olsa bile loglardan kodu görebilmesi için işlemi durdurmuyoruz.
+        return {"ok": True, "message": f"E-posta gönderilemedi: {str(e)}"}
         
-    return {"ok": True, "message": "Doğrulama kodu gönderildi. Lütfen e-postanızı kontrol edin."}
+    return {"ok": True, "message": "Doğrulama kodu e-postanıza gönderildi."}
+
 @app.post("/api/register")
 def register(body: AuthIn):
     try:
@@ -191,7 +194,6 @@ def register(body: AuthIn):
         
         new_user = {"uid": uid, "email": email, "password_hash": hash_password(body.password), "name": name, "created_at": datetime.now(timezone.utc).isoformat(), "role": role, "referral_code": ref_code, "bonus_quota": 0}
         
-        # DAVET SİSTEMİ KONTROLÜ
         ref_code_input = (body.referral_code or "").strip().upper()
         if ref_code_input == "HOSGELDINYKS":
             new_user["bonus_quota"] = 3
@@ -212,7 +214,6 @@ def register(body: AuthIn):
         return {"token": token, "uid": uid, "role": role, "name": name}
     except Exception as e:
         print(f"KAYIT HATASI: {str(e)}")
-        # Hatayı frontend'e detaylı gönder ki kullanıcı ne olduğunu anlasın
         raise HTTPException(500, f"Sunucu Hatası: {str(e)}")
 
 @app.post("/api/login")

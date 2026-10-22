@@ -526,4 +526,28 @@ $('generate-pdf-btn').addEventListener('click', async () => {
     btn.textContent = 'Hazırlanıyor... ⏳'; btn.disabled = true; let pdfContainer;
     try {
         const response = await fetch('/history?pdf=1', { headers: authHeaders() }); if (response.status === 403) { switchTab('settings'); openSubView('setting-premium'); return; } if (!response.ok) throw new Error('history');
-        const all = await response.json(); let filtered = all.filter((q) => selectedSubjects.includes(q.subject)); if (filtered.length === 0) { showToast('Seçtiğin derslerde arşiv
+        const all = await response.json(); let filtered = all.filter((q) => selectedSubjects.includes(q.subject)); if (filtered.length === 0) { showToast('Seçtiğin derslerde arşivde soru yok.'); return; } filtered = filtered.sort(() => 0.5 - Math.random()).slice(0, count);
+        
+        pdfContainer = document.createElement('div'); pdfContainer.style.cssText = 'width:794px;padding:40px;background:#fff;color:#000;font-family:Inter,Arial,sans-serif;position:fixed;top:0;left:0;z-index:9999;pointer-events:none;';
+        let html = `<div style="text-align:center;margin-bottom:30px;border-bottom:2px solid #000;padding-bottom:10px"><h1 style="margin:0">YKS Sorumatik</h1><p>Kişiselleştirilmiş Deneme Testi</p></div><h3>SORULAR</h3>`;
+        
+        filtered.forEach((q, i) => { 
+            let imgSrc = q.image; if (imgSrc && !imgSrc.startsWith('http') && !imgSrc.startsWith('data:')) { imgSrc = 'data:image/jpeg;base64,' + imgSrc; }
+            html += `<div style="margin-bottom:30px;page-break-inside:avoid"><strong>Soru ${i + 1} (${escapeHtml(q.subject)})</strong><br><img src="${imgSrc}" style="max-width:100%;max-height:400px;display:block;margin:10px 0"></div>`; 
+        });
+        html += `<div style="page-break-before:always"><h3 style="border-top:2px solid #000;padding-top:20px">ÇÖZÜMLER</h3>`;
+        filtered.forEach((q, i) => { html += `<div style="margin-bottom:30px;page-break-inside:avoid"><strong>Soru ${i + 1} Çözümü</strong><div style="font-size:14px;line-height:1.6">${renderMarkdown(q.answer)}</div></div>`; }); html += `</div>`;
+        
+        pdfContainer.innerHTML = html; document.body.appendChild(pdfContainer); renderMath(pdfContainer);
+        await Promise.all(Array.from(pdfContainer.querySelectorAll('img')).map((img) => img.decode ? img.decode().catch(() => { }) : Promise.resolve())); 
+        await new Promise((r) => setTimeout(r, 1500)); 
+
+        const opt = { margin: 10, filename: `YKS_Test_${Date.now()}.pdf`, image: { type: 'jpeg', quality: 0.95 }, html2canvas: { scale: 2, useCORS: true, scrollX: 0, scrollY: 0, backgroundColor: '#ffffff' }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['css', 'legacy'] } };
+        await html2pdf().set(opt).from(pdfContainer).save(); showToast('PDF indirildi. Bol şans! 💪');
+    } catch (error) { console.error(error); showToast('PDF oluşturulurken bir hata oluştu.'); } finally { if (pdfContainer && pdfContainer.parentNode) pdfContainer.parentNode.removeChild(pdfContainer); resetBtn(); }
+});
+
+$('quota-chip').addEventListener('click', () => { switchTab('settings'); openSubView('setting-premium'); });
+
+// ---------- Başlangıç ----------
+fetchStatus().then(() => { renderStats(); startCountdown(); });

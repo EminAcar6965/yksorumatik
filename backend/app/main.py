@@ -1,3 +1,4 @@
+import resend 
 import os, uuid, time, base64, io, jwt, bcrypt, random, string
 from datetime import datetime, timezone, timedelta
 from typing import Optional
@@ -141,18 +142,36 @@ COACH_SYSTEM = """Sen samimi, destekleyici ve gerçekçi bir YKS sınav koçusun
 def send_code(body: AuthIn):
     email = body.email.strip().lower()
     if not email or "@" not in email: raise HTTPException(400, "Geçerli bir e-posta girin.")
+    
     code = ''.join(random.choices(string.digits, k=6)); expires = int(time.time()) + 300
     
     try:
-        # Önce varsa eski kodu sil, sonra yenisini ekle (Upsert yerine daha garanti)
         supabase.table("verification_codes").delete().eq("email", email).execute()
         supabase.table("verification_codes").insert({"email": email, "code": code, "expires_at": expires}).execute()
     except Exception as e:
         print(f"Supabase Kod Kayıt Hatası: {e}")
         
-    print(f"🔥 DOĞRULAMA KODU ({email}): {code}")
-    return {"ok": True, "message": "Doğrulama kodu gönderildi."}
-
+    print(f"🔥 DOĞRULAMA KODU ({email}): {code}") # Loglara yazmaya devam etsin (yedek)
+    
+    # GERÇEK E-POSTA GÖNDERİMİ (RESEND)
+    resend_api_key = os.getenv("RESEND_API_KEY", "")
+    if resend_api_key:
+        try:
+            resend.api_key = resend_api_key
+            resend.Emails.send({
+                "from": "Sorumatik <onboarding@resend.dev>", # Resend test domaini
+                "to": [email],
+                "subject": "Sorumatik Doğrulama Kodu",
+                "html": f"<p>Merhaba!</p><p>Sorumatik'e kayıt olmak için doğrulama kodun: <strong>{code}</strong></p><p>Bu kod 5 dakika geçerlidir.</p>"
+            })
+            print(f"✅ E-posta başarıyla gönderildi: {email}")
+        except Exception as e:
+            print(f"❌ E-posta gönderim hatası: {e}")
+            # E-posta gitmezse hata dönmesin, loglardan okusun diye devam ediyoruz
+    else:
+        print("⚠️ RESEND_API_KEY bulunamadı. E-posta gönderilemedi.")
+        
+    return {"ok": True, "message": "Doğrulama kodu gönderildi. Lütfen e-postanızı kontrol edin."}
 @app.post("/api/register")
 def register(body: AuthIn):
     try:

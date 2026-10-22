@@ -8,3 +8,4 @@ PyJWT
 bcrypt
 supabase
 boto3
+resend

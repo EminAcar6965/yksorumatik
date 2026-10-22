@@ -86,7 +86,6 @@
         <div class="muted small" id="pomo-count">Bugün 0 tur</div>
       </div>
 
-      <!-- GELİŞMİŞ ANALİZ KARTI -->
       <div class="glass-card" id="analytics-card">
         <div class="card-title">📊 Zayıf Noktalarım (Konu Analizi)</div>
         <div id="analytics-content" class="muted small" style="line-height: 1.6;">Yükleniyor...</div>
@@ -197,6 +196,16 @@
             <div class="setting-arrow">›</div>
           </div>
 
+          <!-- ADMIN PANELİ BUTONU -->
+          <div class="setting-item hidden" id="setting-admin-btn" data-target="setting-admin">
+            <div class="setting-icon">🛡️</div>
+            <div class="setting-content">
+              <div class="setting-title" style="color:var(--neon-blue);">Admin Paneli</div>
+              <div class="setting-desc">Sistem istatistiklerini gör</div>
+            </div>
+            <div class="setting-arrow">›</div>
+          </div>
+
           <div class="setting-item" data-target="setting-suggestion">
             <div class="setting-icon">💡</div>
             <div class="setting-content">
@@ -236,45 +245,50 @@
       </div>
     </section>
 
-    <!-- 5.1) HESAP AYARLARI SAYFASI -->
+    <!-- ALT SAYFALAR -->
     <section class="view" id="view-setting-account">
-      <div class="subpage-header">
-        <button class="back-btn" data-back="settings">←</button>
-        <h2>Hesap</h2>
-      </div>
+      <div class="subpage-header"><button class="back-btn" data-back="settings">←</button><h2>Hesap</h2></div>
       <div id="account-page-content" class="glass-card"></div>
     </section>
 
-    <!-- 5.2) PREMIUM SAYFASI -->
     <section class="view" id="view-setting-premium">
-      <div class="subpage-header">
-        <button class="back-btn" data-back="settings">←</button>
-        <h2>Premium</h2>
-      </div>
+      <div class="subpage-header"><button class="back-btn" data-back="settings">←</button><h2>Premium</h2></div>
       <div id="premium-page-content"></div>
     </section>
 
-    <!-- 5.3) DAVET ET SAYFASI -->
     <section class="view" id="view-setting-invite">
-      <div class="subpage-header">
-        <button class="back-btn" data-back="settings">←</button>
-        <h2>Arkadaşını Davet Et</h2>
-      </div>
+      <div class="subpage-header"><button class="back-btn" data-back="settings">←</button><h2>Arkadaşını Davet Et</h2></div>
       <div class="glass-card" style="text-align: center;">
         <div style="font-size: 48px; margin-bottom: 16px;">🎁</div>
         <p class="muted small" style="margin-bottom: 16px;">Arkadaşın bu kodu kullanarak kayıt olursa <strong>sen 1 Günlük Premium</strong>, o ise <strong>+3 Soru Hakkı</strong> kazanır!</p>
-        <div style="background: rgba(255,255,255,0.1); border: 2px dashed var(--neon-blue); padding: 16px; border-radius: 12px; font-size: 24px; font-weight: 800; letter-spacing: 2px; margin-bottom: 16px; cursor: pointer;" id="my-referral-code" onclick="navigator.clipboard.writeText(this.innerText); showToast('Kopyalandı!')">
-          KOD
-        </div>
+        <div style="background: rgba(255,255,255,0.1); border: 2px dashed var(--neon-blue); padding: 16px; border-radius: 12px; font-size: 24px; font-weight: 800; letter-spacing: 2px; margin-bottom: 16px; cursor: pointer;" id="my-referral-code" onclick="navigator.clipboard.writeText(this.innerText); showToast('Kopyalandı!')">KOD</div>
       </div>
     </section>
 
-    <!-- 5.4) ÖNERİ & ŞİKAYET SAYFASI -->
-    <section class="view" id="view-setting-suggestion">
+    <!-- ADMIN PANELİ SAYFASI -->
+    <section class="view" id="view-setting-admin">
       <div class="subpage-header">
         <button class="back-btn" data-back="settings">←</button>
-        <h2>Öneri & Şikayet</h2>
+        <h2>Admin Paneli 🛡️</h2>
       </div>
+      
+      <div class="stat-grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 16px;">
+        <div class="glass-card stat">
+            <div class="stat-ico">👥</div><div class="stat-val" id="admin-total-users">0</div><div class="muted small">Toplam Kullanıcı</div>
+        </div>
+        <div class="glass-card stat">
+            <div class="stat-ico">💎</div><div class="stat-val" id="admin-premium-users">0</div><div class="muted small">Premium Kullanıcı</div>
+        </div>
+      </div>
+
+      <div class="glass-card">
+        <div class="card-title">Son Kayıt Olanlar</div>
+        <div id="admin-user-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+      </div>
+    </section>
+
+    <section class="view" id="view-setting-suggestion">
+      <div class="subpage-header"><button class="back-btn" data-back="settings">←</button><h2>Öneri & Şikayet</h2></div>
       <div class="glass-card" style="text-align: center; padding: 30px;">
         <div style="font-size: 48px; margin-bottom: 16px;">💬</div>
         <h3>Görüşlerin Bizim İçin Değerli</h3>
@@ -285,61 +299,41 @@
       </div>
     </section>
 
-    <!-- 5.5) YAPIMCI HAKKINDA SAYFASI -->
     <section class="view" id="view-setting-about">
-      <div class="subpage-header">
-        <button class="back-btn" data-back="settings">←</button>
-        <h2>Yapımcı Hakkında</h2>
-      </div>
+      <div class="subpage-header"><button class="back-btn" data-back="settings">←</button><h2>Yapımcı Hakkında</h2></div>
       <div class="glass-card">
         <h3 style="margin-bottom: 12px;">Emin Acar</h3>
         <p class="muted" style="font-size: 14px; line-height: 1.6; margin-bottom: 24px;">
           Çok yönlü ilgi alanları ve bitmek bilmeyen üretme arzusu ile dikkat çeken Emin Acar, İstanbul Gelişim Üniversitesi'nde İngilizce Elektrik-Elektronik Mühendisliği eğitimine devam eden genç bir mühendis adayıdır. Vizyonunu sadece kendi alanıyla sınırlı tutmuyor; farklı bilim dallarını bir araya getirerek gerçek anlamda multidisipliner bir mühendislik profili inşa etmeye çalışıyor. Teknoloji ve yapay zekayı eğitimle harmanlayarak geleceğe değer katmayı hedefliyor.
         </p>
-        
         <h4 style="margin-bottom: 12px; border-top: 1px solid var(--glass-border); padding-top: 16px;">İletişim</h4>
         <div style="display: flex; gap: 10px;">
-            <a href="https://wa.me/905051016965" target="_blank" class="ghost-btn" style="flex:1; display:flex; justify-content:center; align-items:center; gap:8px; text-decoration:none; color:#25D366; border-color:#25D366;">
-              <span>WhatsApp</span>
-            </a>
-            <a href="https://instagram.com/em1nacar" target="_blank" class="ghost-btn" style="flex:1; display:flex; justify-content:center; align-items:center; gap:8px; text-decoration:none; color:#E1306C; border-color:#E1306C;">
-              <span>Instagram</span>
-            </a>
+            <a href="https://wa.me/905051016965" target="_blank" class="ghost-btn" style="flex:1; display:flex; justify-content:center; align-items:center; gap:8px; text-decoration:none; color:#25D366; border-color:#25D366;"><span>WhatsApp</span></a>
+            <a href="https://instagram.com/em1nacar" target="_blank" class="ghost-btn" style="flex:1; display:flex; justify-content:center; align-items:center; gap:8px; text-decoration:none; color:#E1306C; border-color:#E1306C;"><span>Instagram</span></a>
         </div>
       </div>
     </section>
 
-    <!-- 5.6) SORUMATIK AİLESİ SAYFASI -->
     <section class="view" id="view-setting-family">
-      <div class="subpage-header">
-        <button class="back-btn" data-back="settings">←</button>
-        <h2>Sorumatik AIlesi</h2>
-      </div>
+      <div class="subpage-header"><button class="back-btn" data-back="settings">←</button><h2>Sorumatik AIlesi</h2></div>
       <div class="glass-card" style="text-align: center;">
         <div style="font-size: 48px; margin-bottom: 16px;">🚀</div>
         <p class="muted" style="font-size: 14px; line-height: 1.6; margin-bottom: 24px;">
           Sorumatik AIlesi, yapay zeka destekli eğitim araçları geliştiren bir topluluktur. Amacımız, her öğrencinin kaliteli eğitime erişimini kolaylaştırmak.<br><br>Bizi tercih ettiğin için teşekkürler! 💙
         </p>
-        <!-- YENİ IG BUTONU -->
         <a href="https://instagram.com/sorumatik.ai" target="_blank" class="primary-btn full" style="display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%); color: white;">
           <span>Instagram'da Takip Et</span>
         </a>
       </div>
     </section>
 
-    <!-- 5.7) YASAL BİLGİLER SAYFASI -->
     <section class="view" id="view-setting-legal">
-      <div class="subpage-header">
-        <button class="back-btn" data-back="settings">←</button>
-        <h2>Yasal Bilgiler</h2>
-      </div>
+      <div class="subpage-header"><button class="back-btn" data-back="settings">←</button><h2>Yasal Bilgiler</h2></div>
       <div class="glass-card" style="font-size: 13px; line-height: 1.6; color: var(--text-muted);">
         <h3 style="color:var(--text-main); margin-bottom:8px;">Gizlilik Politikası</h3>
         <p>Kişisel verileriniz (e-posta, fotoğraflar) sadece size hizmet vermek amacıyla güvenli sunucularda (Supabase ve Cloudflare R2) saklanır. Üçüncü şahıslarla paylaşılmaz.</p>
-        
         <h3 style="color:var(--text-main); margin:16px 0 8px;">Kullanım Koşulları</h3>
         <p>Sorumatik AI, eğitim amaçlı bir yapay zeka asistanıdır. Verdiği cevaplar bilgilendirme amaçlıdır, resmi bir öğretmen yerine geçmez. Sitede hukuka aykırı içerik paylaşılması yasaktır.</p>
-        
         <h3 style="color:var(--text-main); margin:16px 0 8px;">Mesafeli Satış Sözleşmesi</h3>
         <p>Premium üyelikler dijital hizmet olup, satın alım sonrası 14 gün içinde iade talep edilebilir. Abonelik iptalleri bir sonraki dönem için geçerlidir.</p>
       </div>
@@ -374,27 +368,21 @@
 <div id="auth-modal" class="modal hidden">
   <div class="modal-box" style="max-width: 400px;">
     <h3 id="auth-title">Giriş Yap</h3>
-    
     <div id="auth-register-fields" class="hidden">
       <input id="auth-name" class="text-input" type="text" placeholder="Adın">
     </div>
-
     <input id="auth-email" class="text-input" type="email" placeholder="E-posta">
     <input id="auth-password" class="text-input" type="password" placeholder="Şifre">
-    
     <div id="auth-password-confirm-wrap" class="hidden">
       <input id="auth-password-confirm" class="text-input" type="password" placeholder="Şifreyi Tekrar Gir">
     </div>
-
     <div id="auth-code-wrap" class="hidden" style="display:flex; gap:8px; align-items:center; margin-top:8px;">
       <input id="auth-code" class="text-input" type="text" placeholder="Doğrulama Kodu" style="flex:1; margin-top:0;">
       <button id="btn-send-code" class="ghost-btn" type="button" style="padding:11px 12px; font-size:12px;">Kod Al</button>
     </div>
-
     <div id="auth-referral-wrap" class="hidden">
       <input id="auth-referral" class="text-input" type="text" placeholder="Kod giriniz (varsa)">
     </div>
-
     <button id="auth-submit" class="primary-btn full">Giriş Yap</button>
     <button id="auth-switch" class="ghost-btn full">Hesabın yok mu? Kayıt Ol</button>
     <button id="auth-close" class="ghost-btn full">Kapat</button>

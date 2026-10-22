@@ -61,7 +61,6 @@ def get_user(request: Request, response: Response):
                 res = supabase.table("users").select("*").eq("uid", uid).execute()
                 if res.data and len(res.data) > 0: 
                     user = res.data[0]
-                    # Eğer eski kullanıcıysa ve kodu yoksa, anında oluştur ve kaydet
                     if not user.get("referral_code"):
                         new_code = uid[:8].upper()
                         supabase.table("users").update({"referral_code": new_code}).eq("uid", uid).execute()
@@ -80,7 +79,6 @@ def get_user(request: Request, response: Response):
         user = new_user
     else:
         user = res.data[0]
-        # Anonim kullanıcı için de kod yoksa oluştur
         if not user.get("referral_code"):
             new_code = uid[:8].upper()
             supabase.table("users").update({"referral_code": new_code}).eq("uid", uid).execute()
@@ -90,9 +88,23 @@ def get_user(request: Request, response: Response):
     return user
 
 def get_status(user):
+    # ADMIN KONTROLÜ: Admin ise sınırsız premium ver
+    if user.get("role") == "admin":
+        return {
+            "is_premium": True,
+            "remaining": 9999,
+            "plan": "Sınırsız Admin",
+            "premium_until": 9999999999, # 2286 yılı
+            "email": user.get("email", ""),
+            "name": user.get("name", ""),
+            "role": "admin",
+            "referral_code": user.get("referral_code", ""),
+            "bonus_quota": 9999
+        }
+
     is_premium = (user.get("premium_until") or 0) > time.time()
     used = user.get("used_count", 0) if user.get("used_date") == today() else 0
-    bonus = user.get("bonus_quota", 0) or 0 # None gelirse 0 yap
+    bonus = user.get("bonus_quota", 0) or 0
     return {
         "is_premium": is_premium,
         "remaining": max(0, DAILY_FREE + bonus - used),
@@ -106,26 +118,25 @@ def get_status(user):
     }
 
 def consume_quota(uid, user):
+    if user.get("role") == "admin": return # Admin hakkı bitmez
     used = user.get("used_count", 0) if user.get("used_date") == today() else 0
     supabase.table("users").update({"used_date": today(), "used_count": used + 1}).eq("uid", uid).execute()
 
-def ask_ai(system: str, contents: list, max_tokens: int = 4096) -> str: # Limiti 4096 yaptık
+def ask_ai(system: str, contents: list, max_tokens: int = 4096) -> str:
     if not client: raise HTTPException(500, "GEMINI_API_KEY ayarlanmamış.")
     try:
         response = client.models.generate_content(
-            model='gemini-3.8-flash',
+            model='gemini-1.5-flash', # En stabil model
             config=types.GenerateContentConfig(system_instruction=system, max_output_tokens=max_tokens, temperature=0.6),
             contents=contents
         )
-        
-        # Eğer cevap limitten dolayı kesildiyse kullanıcıya bilgi ver
         if response.candidates and response.candidates[0].finish_reason == "MAX_TOKENS":
             return response.text + "\n\n*(Not: Cevap çok uzun olduğu için burada kesildi kardeşim. Devam etmemi istersen 'devam et' yazabilirsin.)*"
-            
         return response.text
     except Exception as e:
         print(f"🔥 YAPAY ZEKA HATASI: {e}")
         raise HTTPException(502, f"Yapay Zeka Hatası: {str(e)}")
+
 def prepare_image(raw: bytes) -> bytes:
     try:
         img = Image.open(io.BytesIO(raw)); img = ImageOps.exif_transpose(img).convert("RGB"); img.thumbnail((1600, 1600))
@@ -153,39 +164,30 @@ Bağlam: Ders: {subject} | Not: {note} | Önceki Çözüm: {solution}"""
 
 COACH_SYSTEM = """Sen samimi, destekleyici ve gerçekçi bir YKS sınav koçusun. Türkçe konuş. Kısa, uygulanabilir cevaplar ver. Profil: {profile}"""
 
-# --- Auth ---
+# --- Auth & Admin ---
 @app.post("/api/send-code")
 def send_code(body: AuthIn):
     email = body.email.strip().lower()
     if not email or "@" not in email: raise HTTPException(400, "Geçerli bir e-posta girin.")
-    
     code = ''.join(random.choices(string.digits, k=6)); expires = int(time.time()) + 300
     
     try:
         supabase.table("verification_codes").delete().eq("email", email).execute()
         supabase.table("verification_codes").insert({"email": email, "code": code, "expires_at": expires}).execute()
-    except Exception as e:
-        print(f"Supabase Kod Kayıt Hatası: {e}")
+    except Exception as e: print(f"Supabase Kod Kayıt Hatası: {e}")
         
     print(f"🔥 DOĞRULAMA KODU ({email}): {code}")
     
     resend_api_key = os.getenv("RESEND_API_KEY", "")
-    if not resend_api_key:
-        print("⚠️ RESEND_API_KEY Render'da ayarlanmamış!")
-        return {"ok": True, "message": "Kod oluşturuldu (Loglara bakın)."}
-
-    try:
-        resend.api_key = resend_api_key
-        resend.Emails.send({
-            "from": "Sorumatik <noreply@yksorumatik.com.tr>",
-            "to": [email],
-            "subject": "Sorumatik Doğrulama Kodu",
-            "html": f"<p>Merhaba!</p><p>Sorumatik'e kayıt olmak için doğrulama kodun: <strong>{code}</strong></p><p>Bu kod 5 dakika geçerlidir.</p>"
-        })
-        print(f"✅ E-posta başarıyla gönderildi: {email}")
-    except Exception as e:
-        print(f"❌ E-posta gönderim hatası: {e}")
-        return {"ok": True, "message": "Kod oluşturuldu (Loglara bakın)."}
+    if resend_api_key:
+        try:
+            resend.api_key = resend_api_key
+            resend.Emails.send({
+                "from": "Sorumatik <noreply@yksorumatik.com.tr>",
+                "to": [email], "subject": "Sorumatik Doğrulama Kodu",
+                "html": f"<p>Merhaba!</p><p>Sorumatik'e kayıt olmak için doğrulama kodun: <strong>{code}</strong></p>"
+            })
+        except Exception as e: print(f"❌ E-posta gönderim hatası: {e}")
         
     return {"ok": True, "message": "Doğrulama kodu e-postanıza gönderildi."}
 
@@ -244,9 +246,31 @@ def login(body: AuthIn):
 def delete_account(request: Request, response: Response):
     user = get_user(request, response)
     if not user.get("email"): raise HTTPException(400, "Giriş yapmış bir hesap bulunamadı.")
+    if user.get("role") == "admin": raise HTTPException(403, "Admin hesabı silinemez.")
     supabase.table("users").delete().eq("uid", user["uid"]).execute()
     supabase.table("questions").delete().eq("uid", user["uid"]).execute()
     return {"ok": True}
+
+@app.get("/api/admin/stats")
+def admin_stats(request: Request, response: Response):
+    user = get_user(request, response)
+    if user.get("role") != "admin": raise HTTPException(403, "Yetkisiz erişim.")
+    
+    res = supabase.table("users").select("email, name, created_at, premium_until, role").execute()
+    users = res.data
+    
+    # İstatistikleri hesapla
+    total_users = len([u for u in users if u.get("email")])
+    premium_users = len([u for u in users if (u.get("premium_until") or 0) > time.time() or u.get("role") == "admin"])
+    
+    # Son 10 kaydı al (tarihe göre)
+    users_sorted = sorted([u for u in users if u.get("email")], key=lambda x: x.get("created_at", ""), reverse=True)[:20]
+    
+    return {
+        "total_users": total_users,
+        "premium_users": premium_users,
+        "recent_users": users_sorted
+    }
 
 # --- Uygulama ---
 @app.get("/")
@@ -273,6 +297,8 @@ def api_analytics(request: Request, response: Response):
 @app.post("/api/subscribe")
 async def api_subscribe(request: Request, response: Response):
     user = get_user(request, response)
+    if user.get("role") == "admin": raise HTTPException(400, "Admin zaten sınırsız.")
+    
     data = await request.json() if request.headers.get("content-type") == "application/json" else {}
     plan = data.get("plan", "monthly"); days = PLAN_DAYS.get(plan)
     if not days: raise HTTPException(400, "Geçersiz plan.")

@@ -128,6 +128,12 @@ function updateUI() {
         $('premium-desc').style.color = userStatus.is_premium ? 'var(--neon-blue)' : 'var(--text-muted)';
     }
     if ($('my-referral-code')) $('my-referral-code').textContent = userStatus.referral_code || 'KOD-YOK';
+    
+    // ADMIN BUTONUNU GÖSTER/GİZLE
+    if ($('setting-admin-btn')) {
+        $('setting-admin-btn').classList.toggle('hidden', userStatus.role !== 'admin');
+    }
+
     if(userStatus.email) loadAnalytics();
 }
 
@@ -216,6 +222,7 @@ function openSubView(targetId) {
             $('subpage-delete-btn').addEventListener('click', async () => { if (confirm('Hesabınızı silmek istediğinize emin misiniz?')) { try { await fetch('/api/delete-account', { method: 'DELETE', headers: authHeaders() }); authToken = null; localStorage.removeItem('yks_token'); fetchStatus(); switchTab('settings'); showToast('Hesap silindi.'); } catch { showToast('Hesap silinemedi.'); } } });
         }
     }
+    
     if (targetId === 'setting-premium') {
         const el = $('premium-page-content');
         if (userStatus.is_premium && userStatus.premium_until) {
@@ -228,6 +235,36 @@ function openSubView(targetId) {
                 try { const res = await fetch('/api/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify({ plan: btn.dataset.plan }) }); const data = await res.json().catch(() => ({})); if (res.ok) { showToast('Ödeme başarılı! 🎉'); applyStatus(data); switchTab('panel'); } else showToast(data.error || 'Hata oluştu.'); } catch { showToast('Bağlantı hatası.'); } finally { btn.textContent = originalText; btn.disabled = false; }
             }));
         }
+    }
+
+    if (targetId === 'setting-admin') {
+        const el = $('admin-user-list');
+        el.innerHTML = '<p class="muted small">Yükleniyor...</p>';
+        fetch('/api/admin/stats', { headers: authHeaders() })
+            .then(res => { if(!res.ok) throw new Error(); return res.json(); })
+            .then(data => {
+                $('admin-total-users').textContent = data.total_users;
+                $('admin-premium-users').textContent = data.premium_users;
+                
+                if (data.recent_users.length === 0) { el.innerHTML = '<p class="muted small">Kayıtlı kullanıcı yok.</p>'; return; }
+                
+                el.innerHTML = data.recent_users.map(u => {
+                    const isPrem = (u.premium_until > Date.now()/1000) || u.role === 'admin';
+                    const premText = isPrem ? '<span style="color:var(--neon-blue);">💎 Premium</span>' : '<span class="muted">🆓 Ücretsiz</span>';
+                    return `
+                    <div style="display:flex; justify-content:space-between; padding:8px; background:rgba(0,0,0,0.2); border-radius:8px; font-size:13px;">
+                        <div>
+                            <div style="font-weight:600;">${escapeHtml(u.name || 'İsimsiz')} ${u.role==='admin'?'(Admin)':''}</div>
+                            <div class="muted small">${escapeHtml(u.email)}</div>
+                        </div>
+                        <div style="text-align:right;">
+                            ${premText}
+                            <div class="muted small" style="margin-top:4px;">${new Date(u.created_at).toLocaleDateString('tr-TR')}</div>
+                        </div>
+                    </div>`;
+                }).join('');
+            })
+            .catch(() => { el.innerHTML = '<p class="muted small" style="color:var(--coral);">İstatistikler yüklenemedi.</p>'; });
     }
 }
 document.querySelectorAll('.setting-item').forEach(item => item.addEventListener('click', () => openSubView(item.dataset.target)));
@@ -253,51 +290,26 @@ function messageHtml({ role, body, cls = '', avatar = ABI_AVATAR }) {
 function addMessage(container, opts) { container.insertAdjacentHTML('beforeend', messageHtml(opts)); const el = container.lastElementChild; scrollEnd(container); return el; }
 function addTyping(container, avatar) { return addMessage(container, { role: 'ai', avatar, body: `<div class="typing-text" style="font-size:13px; color:var(--text-muted); font-style:italic;">Mentor düşünüyor... (Kalan Hakkınız: ${userStatus.is_premium ? 'Sınırsız' : userStatus.remaining})</div>` }); }
 
-// YENİ: DAKTİLO EFEKTİLİ CEVAP EKLEME
 function addAiTypewriter(container, text, avatar) {
     const el = addMessage(container, { role: 'ai', avatar, body: '', cls: 'response-text typewriter-cursor' });
     const bubble = el.querySelector('.msg-bubble');
-    
-    // Önce Markdown'ı HTML'e çevir, sonra HTML tag'lerini bozmadan text node'ları yavaşça ekle.
     const fullHtml = renderMarkdown(text);
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = fullHtml;
+    const tempDiv = document.createElement('div'); tempDiv.innerHTML = fullHtml;
+    let nodes = Array.from(tempDiv.childNodes); let i = 0; bubble.innerHTML = '';
     
-    let nodes = Array.from(tempDiv.childNodes);
-    let i = 0;
-    bubble.innerHTML = ''; // Temizle
-    
-    // Basit daktilo: Elementleri tek tek ekle (aslında çok hızlı ama şık durur)
     const interval = setInterval(() => {
         if (i < nodes.length) {
-            bubble.appendChild(nodes[i].cloneNode(true));
-            i++;
-            scrollEnd(container);
+            bubble.appendChild(nodes[i].cloneNode(true)); i++; scrollEnd(container);
         } else {
-            clearInterval(interval);
-            el.classList.remove('typewriter-cursor');
-            renderMath(bubble); // Bittiğinde LaTeX'i render et
-            
-            // Ses butonunu ekle
-            const btn = document.createElement('button');
-            btn.className = 'read-aloud-btn';
-            btn.style = 'background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px; margin-top:8px; padding:4px;';
-            btn.title = "Sesli Oku";
-            btn.innerHTML = '🔊';
-            btn.dataset.reading = 'false';
-            btn.onclick = function() { window.toggleSpeak(this); };
-            bubble.appendChild(btn);
+            clearInterval(interval); el.classList.remove('typewriter-cursor'); renderMath(bubble);
+            const btn = document.createElement('button'); btn.className = 'read-aloud-btn'; btn.style = 'background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px; margin-top:8px; padding:4px;'; btn.title = "Sesli Oku"; btn.innerHTML = '🔊'; btn.dataset.reading = 'false'; btn.onclick = function() { window.toggleSpeak(this); }; bubble.appendChild(btn);
         }
-    }, 100); // Her 100ms'de bir paragraf/başlık ekler (daha hızlı görünmesi için kelime yerine blok bazlı)
+    }, 100);
 }
 
 function addQuickReplies(container, items) {
     const row = document.createElement('div'); row.className = 'quick-replies';
-    items.forEach((item) => {
-        const btn = document.createElement('button'); btn.type = 'button'; btn.textContent = item.label;
-        btn.addEventListener('click', () => { row.remove(); item.action(); });
-        row.appendChild(btn);
-    });
+    items.forEach((item) => { const btn = document.createElement('button'); btn.type = 'button'; btn.textContent = item.label; btn.addEventListener('click', () => { row.remove(); item.action(); }); row.appendChild(btn); });
     container.appendChild(row); scrollEnd(container);
 }
 
@@ -341,23 +353,8 @@ const MOOD_FALLBACK = { 'yorgun': 'Yorgun hissetmen normal. Hedefi küçült: 2-
 $('mood-row').addEventListener('click', async (e) => {
     const btn = e.target.closest('.mood-btn'); if (!btn) return; const key = btn.dataset.mood; store.set('yks_mood', { date: todayKey(), key });
     document.querySelectorAll('.mood-btn').forEach((b) => b.classList.toggle('active', b === btn)); const note = $('coach-note'); note.classList.remove('hidden'); note.textContent = 'Koç yazıyor...';
-    
-    try { 
-        const data = await postJson('/coach', { message: `Bugün ruh halim: ${key}. Bana 2-3 cümlelik, samimi ve uygulanabilir bir motivasyon mesajı yaz.`, history: [], profile: getProfile() }); 
-        
-        // KOÇ NOTU İÇİN DAKTİLO EFEKTİ
-        note.innerHTML = '';
-        let i = 0;
-        const interval = setInterval(() => {
-            if (i < data.answer.length) {
-                note.innerHTML = marked.parse(data.answer.substring(0, i));
-                i += 2; // 2'şer karakter ekle
-            } else {
-                clearInterval(interval);
-                note.innerHTML = marked.parse(data.answer);
-            }
-        }, 20);
-
+    try { const data = await postJson('/coach', { message: `Bugün ruh halim: ${key}. Bana 2-3 cümlelik, samimi ve uygulanabilir bir motivasyon mesajı yaz.`, history: [], profile: getProfile() }); 
+        note.innerHTML = ''; let i = 0; const interval = setInterval(() => { if (i < data.answer.length) { note.innerHTML = marked.parse(data.answer.substring(0, i)); i += 2; } else { clearInterval(interval); note.innerHTML = marked.parse(data.answer); } }, 20);
     } catch { note.textContent = MOOD_FALLBACK[key] || ''; }
 });
 
@@ -441,11 +438,7 @@ document.querySelectorAll('.quick-btn').forEach((btn) => btn.addEventListener('c
 
 async function sendCoach(text) {
     if (!text || coachSending) return; enterCoachChat(); addMessage(coachMessages, { role: 'user', body: nl2br(text) }); coachInput.value = ''; autoGrow(coachInput); coachSending = true; updateCoachSend(); const typing = addTyping(coachMessages, COACH_AVATAR);
-    try { 
-        const data = await postJson('/coach', { message: text, history: coachHistory.slice(-12), profile: getProfile() }); 
-        typing.remove(); coachHistory.push({ role: 'user', content: text }, { role: 'assistant', content: data.answer }); 
-        addAiTypewriter(coachMessages, data.answer, COACH_AVATAR); 
-    } catch (err) { typing.remove(); addMessage(coachMessages, { role: 'ai', avatar: COACH_AVATAR, body: escapeHtml(err.message), cls: 'error' }); } finally { coachSending = false; updateCoachSend(); scrollEnd(coachMessages); }
+    try { const data = await postJson('/coach', { message: text, history: coachHistory.slice(-12), profile: getProfile() }); typing.remove(); coachHistory.push({ role: 'user', content: text }, { role: 'assistant', content: data.answer }); addAiTypewriter(coachMessages, data.answer, COACH_AVATAR); } catch (err) { typing.remove(); addMessage(coachMessages, { role: 'ai', avatar: COACH_AVATAR, body: escapeHtml(err.message), cls: 'error' }); } finally { coachSending = false; updateCoachSend(); scrollEnd(coachMessages); }
 }
 
 // ---------- ODAKLAN ----------
@@ -471,15 +464,10 @@ $('archive-filter').addEventListener('click', (e) => { const chip = e.target.clo
 function renderArchiveList() {
     const list = $('archive-list'); const items = archiveFilter === 'Hepsi' ? archiveData : archiveData.filter((q) => q.subject === archiveFilter);
     if (items.length === 0) { list.innerHTML = `<div class="glass-card muted" style="text-align:center">📭 Burada henüz soru yok.</div>`; return; }
-    
     list.innerHTML = items.map((item, i) => { 
         const date = new Date(item.created_at).toLocaleDateString('tr-TR'); 
-        // RESİM KONTROLÜ (Base64 veya URL)
         let imgSrc = item.image;
-        if (imgSrc && !imgSrc.startsWith('http') && !imgSrc.startsWith('data:')) {
-            imgSrc = 'data:image/jpeg;base64,' + imgSrc;
-        }
-        
+        if (imgSrc && !imgSrc.startsWith('http') && !imgSrc.startsWith('data:')) { imgSrc = 'data:image/jpeg;base64,' + imgSrc; }
         return `<div class="glass-card" style="margin-bottom:14px">
             <img class="arch-img" src="${imgSrc}" alt="Soru" onerror="this.src='https://via.placeholder.com/300x150/0b1020/ffffff?text=Fotoğraf+Yüklenemedi'">
             <div class="arch-meta"><span class="arch-tag">${escapeHtml(item.subject)}</span><span class="small muted">${date}</span></div>
@@ -487,7 +475,6 @@ function renderArchiveList() {
             <div class="archive-answer hidden" id="answer-${i}">${renderMarkdown(item.answer)}<button class="read-aloud-btn" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px; margin-top:8px;" onclick="window.toggleSpeak(this)">🔊 Sesli Dinle</button></div>
         </div>`; 
     }).join('');
-    
     list.querySelectorAll('.archive-toggle').forEach((btn) => btn.addEventListener('click', () => { const answer = $('answer-' + btn.dataset.index); const opening = answer.classList.contains('hidden'); answer.classList.toggle('hidden', !opening); btn.textContent = opening ? 'Çözümü gizle' : 'Çözümü göster'; if (opening && !answer.dataset.rendered) { renderMath(answer); answer.dataset.rendered = '1'; } }));
 }
 async function loadArchive() { const list = $('archive-list'); list.innerHTML = '<div class="glass-card muted">Yükleniyor...</div>'; try { const response = await fetch('/history', { headers: authHeaders() }); if (!response.ok) throw new Error(); archiveData = await response.json(); archiveFilter = 'Hepsi'; renderArchiveFilter(); renderArchiveList(); } catch { list.innerHTML = '<div class="glass-card" style="color:var(--coral)">Arşiv yüklenemedi.</div>'; } }
@@ -517,10 +504,8 @@ $('generate-pdf-btn').addEventListener('click', async () => {
         filtered.forEach((q, i) => { html += `<div style="margin-bottom:30px;page-break-inside:avoid"><strong>Soru ${i + 1} Çözümü</strong><div style="font-size:14px;line-height:1.6">${renderMarkdown(q.answer)}</div></div>`; }); html += `</div>`;
         
         pdfContainer.innerHTML = html; document.body.appendChild(pdfContainer); renderMath(pdfContainer);
-        
-        // Resimlerin yüklenmesini zorla bekle (PDF boş çıkmasın)
         await Promise.all(Array.from(pdfContainer.querySelectorAll('img')).map((img) => img.decode ? img.decode().catch(() => { }) : Promise.resolve())); 
-        await new Promise((r) => setTimeout(r, 1500)); // LaTeX ve resimler için ekstra bekleme
+        await new Promise((r) => setTimeout(r, 1500)); 
 
         const opt = { margin: 10, filename: `YKS_Test_${Date.now()}.pdf`, image: { type: 'jpeg', quality: 0.95 }, html2canvas: { scale: 2, useCORS: true, scrollX: 0, scrollY: 0, backgroundColor: '#ffffff' }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['css', 'legacy'] } };
         await html2pdf().set(opt).from(pdfContainer).save(); showToast('PDF indirildi. Bol şans! 💪');

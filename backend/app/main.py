@@ -14,6 +14,7 @@ from supabase import create_client, Client
 import boto3
 from botocore.client import Config
 import resend
+from fastapi.staticfiles import StaticFiles
 
 load_dotenv()
 
@@ -28,7 +29,9 @@ STATIC_DIR = os.path.join(HERE, "..", "static")
 
 app = FastAPI(title="YKS Sorumatik")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
-
+@app.get("/sw.js")
+def serve_sw():
+    return FileResponse(os.path.join(STATIC_DIR, "sw.js"), media_type="application/javascript")
 client = genai.Client(api_key=API_KEY) if API_KEY else None
 
 # Standart Supabase Bağlantısı
@@ -264,7 +267,7 @@ def admin_stats(request: Request, response: Response):
     premium_users = 0
     total_revenue = 0
     
-    plan_prices = {"weekly": 49, "monthly": 129, "yearly": 299}
+    plan_prices = {"weekly": 49, "monthly": 149, "yearly": 1459}
     now = time.time()
     
     for u in users:

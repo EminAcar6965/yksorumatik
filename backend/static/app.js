@@ -642,3 +642,15 @@ $('quota-chip').addEventListener('click', () => { switchTab('settings'); openSub
 
 // ---------- Başlangıç ----------
 fetchStatus().then(() => { renderStats(); startCountdown(); });
+// ---------- PWA SERVICE WORKER KAYDI ----------
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/static/sw.js', { scope: '/' })
+            .then((registration) => {
+                console.log('ServiceWorker başarıyla kaydedildi. Kapsam:', registration.scope);
+            })
+            .catch((error) => {
+                console.log('ServiceWorker kaydı başarısız:', error);
+            });
+    });
+}

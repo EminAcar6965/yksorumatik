@@ -226,28 +226,8 @@ function openSubView(targetId) {
             const daysLeft = Math.max(0, Math.ceil((userStatus.premium_until * 1000 - Date.now()) / (1000 * 60 * 60 * 24))); const d = new Date(userStatus.premium_until * 1000).toLocaleDateString('tr-TR');
             el.innerHTML = `<div class="glass-card" style="text-align:center; border-color:var(--neon-blue);"><div style="font-size:48px; font-weight:800; color:var(--neon-blue);">${daysLeft}</div><div class="muted small">gün kaldı</div><div class="small" style="margin-top:8px;">Bitiş Tarihi: ${d}</div></div>`;
         } else {
-            el.innerHTML = `<div class="plans"><div class="plan"><div class="plan-name">Haftalık</div><div class="plan-price">49 ₺<small>/hafta</small></div><button class="buy-btn primary-btn full" data-plan="weekly">Satın Al</button></div><div class="plan"><div class="plan-name">Aylık</div><div class="plan-price"><del style="font-size:16px; color:#94a3b8; margin-right:4px;">200 ₺</del>149 ₺<small>/ay</small></div><button class="buy-btn primary-btn full" data-plan="monthly">Satın Al</button></div><div class="plan popular"><div class="ribbon">Popüler</div><div class="plan-name">Yıllık</div><div class="plan-price"><del style="font-size:16px; color:#94a3b8; margin-right:4px;">2400 ₺</del>1499 ₺<small>/yıl</small></div><button class="buy-btn primary-btn full" data-plan="yearly">Satın Al</button></div></div>`;
-            
-            el.querySelectorAll('.buy-btn').forEach((btn) => btn.addEventListener('click', async () => {
-                const originalText = btn.textContent; btn.textContent = 'Yönlendiriliyor...'; btn.disabled = true;
-                try {
-                    const res = await fetch('/api/shopier-checkout', { 
-                        method: 'POST', 
-                        headers: { 'Content-Type': 'application/json', ...authHeaders() }, 
-                        body: JSON.stringify({ plan: btn.dataset.plan }) 
-                    });
-                    const data = await res.json();
-                    if (data.url) {
-                        window.location.href = data.url; 
-                    } else {
-                        showToast('Ödeme sayfası oluşturulamadı.');
-                    }
-                } catch { 
-                    showToast('Bağlantı hatası.'); 
-                } finally { 
-                    btn.textContent = originalText; btn.disabled = false; 
-                }
-            }));
+            // DİKKAT: Premium sayfası artık HTML içinden statik ve Shopier linkli olarak geliyor.
+            // Bu yüzden burada plan listesini tekrar basmıyoruz, sadece HTML'deki butonları bırakıyoruz.
         }
     }
 
@@ -573,7 +553,7 @@ $('generate-pdf-btn').addEventListener('click', async () => {
                 .header p { margin: 5px 0 0 0; font-size: 14px; color: #333; }
                 h3 { border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 30px; }
                 .question-block { margin-bottom: 30px; page-break-inside: avoid; }
-                .question-img { max-width: 100%; max-height: 400px; display: block; margin: 10px 0; border: 1px solid #ccc; }
+                .question-img { max-width: 100%; max-height: 450px; display: block; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; }
                 .answer-block { margin-bottom: 30px; page-break-inside: avoid; }
                 .page-break { page-break-before: always; }
                 @media print {
@@ -604,23 +584,13 @@ $('generate-pdf-btn').addEventListener('click', async () => {
             let imgSrc = q.image;
             if (imgSrc && !imgSrc.startsWith('http') && !imgSrc.startsWith('data:')) { 
                 imgSrc = 'data:image/jpeg;base64,' + imgSrc; 
-            } else if (imgSrc && imgSrc.startsWith('http')) {
-                try {
-                    const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(imgSrc)}`;
-                    const imgRes = await fetch(proxyUrl);
-                    const blob = await imgRes.blob();
-                    imgSrc = await new Promise((resolve) => {
-                        const reader = new FileReader();
-                        reader.onloadend = () => resolve(reader.result);
-                        reader.readAsDataURL(blob);
-                    });
-                } catch (err) { console.error("Resim indirilemedi", err); }
             }
+            // Gereksiz proxy fetch kaldırıldı. Tarayıcı resmi doğrudan yazdırma ekranında yükleyecek.
             
             html += `
             <div class="question-block">
                 <strong>Soru ${i + 1} (${escapeHtml(q.subject)})</strong>
-                <img src="${imgSrc}" class="question-img">
+                <img src="${imgSrc}" class="question-img" crossorigin="anonymous">
             </div>`;
         }
         

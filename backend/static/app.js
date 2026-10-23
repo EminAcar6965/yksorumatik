@@ -670,7 +670,7 @@ fetchStatus().then(() => { renderStats(); startCountdown(); });
 // ---------- PWA SERVICE WORKER KAYDI ----------
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/static/sw.js', { scope: '/' })
+        navigator.serviceWorker.register('/sw.js')
             .then((registration) => {
                 console.log('ServiceWorker başarıyla kaydedildi. Kapsam:', registration.scope);
             })

@@ -537,6 +537,34 @@ $('generate-pdf-btn').addEventListener('click', async () => {
         let filtered = all.filter((q) => selectedSubjects.includes(q.subject)); 
         if (filtered.length === 0) { showToast('Seçtiğin derslerde arşivde soru yok.'); return; } 
         filtered = filtered.sort(() => 0.5 - Math.random()).slice(0, count);
+
+        // --- RESİMLERİ BASE64'E ÇEVİRME FONKSİYONU ---
+        const fetchAsBase64 = async (url) => {
+            if (!url || url.startsWith('data:')) return url;
+            try {
+                // Eski r2.dev linkleri yerine yeni domaini kullanmayı dene
+                if (url.includes('r2.dev')) {
+                    url = url.replace(/https:\/\/pub-[a-zA-Z0-9]+\.r2\.dev/, 'https://resim.yksorumatik.com.tr');
+                }
+                const res = await fetch(url, { mode: 'cors' });
+                if (!res.ok) throw new Error('Resim indirilemedi');
+                const blob = await res.blob();
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.readAsDataURL(blob);
+                });
+            } catch (err) {
+                console.error("Resim Base64'e çevrilemedi:", url, err);
+                return url; // Hata olursa orijinal URL'i kullan (kırık çıksa da)
+            }
+        };
+
+        btn.textContent = 'Resimler İşleniyor... ⏳';
+
+        // Resimleri tek tek çek ve base64 listesi oluştur
+        const imagePromises = filtered.map(q => fetchAsBase64(q.image));
+        const base64Images = await Promise.all(imagePromises);
         
         // YENİ PENCERE İÇİN HTML OLUŞTUR
         let html = `
@@ -581,16 +609,12 @@ $('generate-pdf-btn').addEventListener('click', async () => {
         // Soruları Ekle
         for (let i = 0; i < filtered.length; i++) {
             let q = filtered[i];
-            let imgSrc = q.image;
-            if (imgSrc && !imgSrc.startsWith('http') && !imgSrc.startsWith('data:')) { 
-                imgSrc = 'data:image/jpeg;base64,' + imgSrc; 
-            }
-            // Gereksiz proxy fetch kaldırıldı. Tarayıcı resmi doğrudan yazdırma ekranında yükleyecek.
+            let imgSrc = base64Images[i]; // Base64 formatındaki resmi kullan
             
             html += `
             <div class="question-block">
                 <strong>Soru ${i + 1} (${escapeHtml(q.subject)})</strong>
-                <img src="${imgSrc}" class="question-img" crossorigin="anonymous">
+                <img src="${imgSrc}" class="question-img">
             </div>`;
         }
         
@@ -638,6 +662,7 @@ $('generate-pdf-btn').addEventListener('click', async () => {
         resetBtn(); 
     }
 });
+
 $('quota-chip').addEventListener('click', () => { switchTab('settings'); openSubView('setting-premium'); });
 
 // ---------- Başlangıç ----------

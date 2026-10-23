@@ -31,7 +31,14 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 client = genai.Client(api_key=API_KEY) if API_KEY else None
 
+# Standart Supabase Bağlantısı
 supabase: Client = create_client(os.getenv("SUPABASE_URL", ""), os.getenv("SUPABASE_ANON_KEY", ""))
+
+# Webhook ve Admin işlemleri için Service Role yetkili Supabase Bağlantısı
+supabase_admin: Client = create_client(
+    os.getenv("SUPABASE_URL", ""), 
+    os.getenv("SUPABASE_SERVICE_ROLE_KEY", os.getenv("SUPABASE_ANON_KEY", ""))
+)
 
 s3_client = boto3.client(
     service_name='s3', endpoint_url=os.getenv('R2_ENDPOINT_URL'),
@@ -119,7 +126,6 @@ def consume_quota(uid, user):
 def ask_ai(system: str, contents: list, max_tokens: int = 4096) -> str:
     if not client: raise HTTPException(500, "GEMINI_API_KEY ayarlanmamış.")
     try:
-        # Model güncellendi
         response = client.models.generate_content(
             model='gemini-3.8-flash',
             config=types.GenerateContentConfig(system_instruction=system, max_output_tokens=max_tokens, temperature=0.6),
@@ -258,7 +264,7 @@ def admin_stats(request: Request, response: Response):
     premium_users = 0
     total_revenue = 0
     
-    plan_prices = {"weekly": 49, "monthly": 149, "yearly": 1499}
+    plan_prices = {"weekly": 49, "monthly": 129, "yearly": 299}
     now = time.time()
     
     for u in users:
@@ -332,9 +338,17 @@ async def solve(request: Request, response: Response, file: UploadFile = File(..
         except: pass
         
     file_name = f"questions/{user['uid']}_{int(time.time())}.jpg"
-    image_url = upload_to_r2(jpeg, file_name)
+    b64_string = base64.b64encode(jpeg).decode()
     
-    new_q = {"uid": user["uid"], "subject": subject, "topic": topic, "image": image_url or "error", "answer": answer, "created_at": datetime.now(timezone.utc).isoformat()}
+    try:
+        s3_client.put_object(Bucket=os.getenv('R2_BUCKET_NAME'), Key=file_name, Body=jpeg, ContentType="image/jpeg")
+        image_data = f"{os.getenv('R2_PUBLIC_URL')}/{file_name}"
+        print(f"✅ Resim R2'ye yüklendi: {image_data}")
+    except Exception as e:
+        print(f"❌ R2 Yükleme Hatası (Base64 fallback kullanılacak): {e}")
+        image_data = b64_string
+        
+    new_q = {"uid": user["uid"], "subject": subject, "topic": topic, "image": image_data, "answer": answer, "created_at": datetime.now(timezone.utc).isoformat()}
     supabase.table("questions").insert(new_q).execute()
     
     if not st["is_premium"]: consume_quota(user["uid"], user)
@@ -372,3 +386,63 @@ def history(request: Request, response: Response, pdf: int = 0):
     if pdf == 1 and not get_status(user)["is_premium"]: raise HTTPException(403, "PDF indirme Premium üyelere özeldir.")
     res = supabase.table("questions").select("*").eq("uid", user["uid"]).order("id", desc=True).limit(200 if pdf else 60).execute()
     return res.data
+
+# --- SHOPIER WEBHOOK ENTEGRASYONU ---
+@app.post("/api/shopier-webhook")
+async def shopier_webhook(request: Request):
+    try:
+        # Shopier bazen JSON bazen Form-Data gönderir, ikisini de kontrol edelim
+        content_type = request.headers.get("content-type", "")
+        if "application/json" in content_type:
+            data = await request.json()
+        else:
+            form_data = await request.form()
+            data = dict(form_data)
+
+        # Değişkenleri al (Shopier gönderim formatına göre esneklik)
+        buyer_email = data.get("buyer_email") or data.get("email") or data.get("customer_email")
+        product_id = str(data.get("product_id") or data.get("productId") or data.get("product").get("id") if data.get("product") else data.get("product_id"))
+        
+        if not buyer_email:
+            print("Webhook Hatası: E-posta bulunamadı.")
+            return {"status": "error", "message": "Email missing"}
+
+        # Ürün ID -> Gün ve Plan Eşleşmesi
+        # 1 Haftalık: 52174634 | 1 Aylık: 52174930 | 1 Senelik: 52174982
+        product_mapping = {
+            "52174634": (7, "weekly"),
+            "52174930": (30, "monthly"),
+            "52174982": (365, "yearly")
+        }
+
+        if product_id not in product_mapping:
+            print(f"Bilinmeyen Ürün ID'si: {product_id}")
+            return {"status": "error", "message": "Unknown product"}
+        
+        eklenecek_gun, plan_adi = product_mapping[product_id]
+
+        # Kullanıcıyı Supabase'de bul (Admin yetkisiyle)
+        response = supabase_admin.table("users").select("*").eq("email", buyer_email).execute()
+        
+        if not response.data:
+            print(f"Kullanıcı bulunamadı: {buyer_email}")
+            return {"status": "error", "message": "User not found"}
+
+        user = response.data[0]
+        mevcut_bitis = user.get("premium_until") or 0
+        
+        # Yeni tarihi hesapla (Eğer zaten premium'sa üzerine ekle)
+        yeni_bitis = int(max(time.time(), mevcut_bitis) + (eklenecek_gun * 86400))
+
+        # Veritabanını güncelle
+        supabase_admin.table("users").update({
+            "premium_until": yeni_bitis,
+            "plan": plan_adi
+        }).eq("email", buyer_email).execute()
+
+        print(f"✅ Başarılı: {buyer_email} kullanıcısına {eklenecek_gun} gün ({plan_adi}) eklendi.")
+        return {"status": "success", "message": "Premium updated"}
+
+    except Exception as e:
+        print(f"❌ Shopier Webhook Hatası: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))

@@ -130,7 +130,7 @@ def ask_ai(system: str, contents: list, max_tokens: int = 4096) -> str:
     if not client: raise HTTPException(500, "GEMINI_API_KEY ayarlanmamış.")
     try:
         response = client.models.generate_content(
-            model='gemini-3.8-flash',
+            model='gemini-2.5-flash-lite',
             config=types.GenerateContentConfig(system_instruction=system, max_output_tokens=max_tokens, temperature=0.6),
             contents=contents
         )

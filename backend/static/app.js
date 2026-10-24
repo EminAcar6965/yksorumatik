@@ -178,6 +178,27 @@ async function loadAnalytics() {
     } catch(e) { el.innerHTML = "Analiz yüklenemedi."; }
 }
 
+// ---------- LİDERLİK TABLOSU ----------
+async function loadLeaderboard() {
+    const el = $('leaderboard-content'); if (!el) return;
+    try {
+        const res = await fetch('/api/leaderboard');
+        const data = await res.json();
+        if (!data || data.length === 0) { el.innerHTML = "Bu hafta henüz soru çözen olmadı. İlk sen ol! 🚀"; return; }
+        
+        let html = '';
+        const medals = ['🥇', '🥈', '🥉'];
+        data.forEach((user, i) => {
+            const medal = i < 3 ? medals[i] : `<span style="color:var(--text-muted); font-size:12px; margin-left:4px;">${i+1}.</span>`;
+            html += `<div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.05); padding: 6px 0;">
+                <span>${medal} ${escapeHtml(user.name)}</span>
+                <span style="font-weight:bold; color:var(--neon-blue);">${user.count} Soru</span>
+            </div>`;
+        });
+        el.innerHTML = html;
+    } catch (e) { el.innerHTML = "Liderlik tablosu yüklenemedi."; }
+}
+
 // ---------- AUTH MODAL ----------
 let authMode = 'login';
 function openAuthModal() { authMode = 'login'; toggleAuthModeUI(); $('auth-email').value = ''; $('auth-password').value = ''; $('auth-name').value = ''; $('auth-code').value = ''; $('auth-referral').value = ''; $('auth-modal').classList.remove('hidden'); }
@@ -226,8 +247,7 @@ function openSubView(targetId) {
             const daysLeft = Math.max(0, Math.ceil((userStatus.premium_until * 1000 - Date.now()) / (1000 * 60 * 60 * 24))); const d = new Date(userStatus.premium_until * 1000).toLocaleDateString('tr-TR');
             el.innerHTML = `<div class="glass-card" style="text-align:center; border-color:var(--neon-blue);"><div style="font-size:48px; font-weight:800; color:var(--neon-blue);">${daysLeft}</div><div class="muted small">gün kaldı</div><div class="small" style="margin-top:8px;">Bitiş Tarihi: ${d}</div></div>`;
         } else {
-            // DİKKAT: Premium sayfası artık HTML içinden statik ve Shopier linkli olarak geliyor.
-            // Bu yüzden burada plan listesini tekrar basmıyoruz, sadece HTML'deki butonları bırakıyoruz.
+            // Statik HTML kullanılıyor
         }
     }
 
@@ -279,7 +299,10 @@ function renderAdminUserList() {
         }
 
         return `
-        <div style="display:flex; justify-content:space-between; padding:8px; background:rgba(0,0,0,0.2); border-radius:8px; font-size:13px;">
+        <div class="admin-user-row" style="display:flex; justify-content:space-between; padding:12px; background:rgba(0,0,0,0.2); border-radius:8px; font-size:13px; cursor:pointer; transition:0.2s;" 
+             onclick="openAdminPremiumModal('${escapeHtml(u.email)}', '${escapeHtml(u.name || 'İsimsiz')}')"
+             onmouseover="this.style.background='rgba(255,255,255,0.05)'" 
+             onmouseout="this.style.background='rgba(0,0,0,0.2)'">
             <div>
                 <div style="font-weight:600;">${escapeHtml(u.name || 'İsimsiz')} ${u.role==='admin'?'(Admin)':''}</div>
                 <div class="muted small">${escapeHtml(u.email)}</div>
@@ -300,6 +323,81 @@ document.addEventListener('click', (e) => {
         e.target.style.color = window.adminFilterActive ? 'var(--neon-blue)' : 'var(--text)';
         renderAdminUserList();
     }
+});
+
+// ---------- ADMIN PREMIUM VERME MODALI ----------
+let currentAdminEmail = '';
+window.openAdminPremiumModal = function(email, name) {
+    currentAdminEmail = email;
+    $('admin-modal-name').textContent = name + " (" + email + ")";
+    $('admin-premium-modal').classList.remove('hidden');
+};
+
+window.giveAdminPremium = async function(days) {
+    const btn = event.target;
+    const original = btn.textContent;
+    btn.textContent = 'İşleniyor...';
+    btn.disabled = true;
+
+    try {
+        const res = await fetch('/api/admin/give-premium', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
+            body: JSON.stringify({ email: currentAdminEmail, days: days })
+        });
+        if (res.ok) {
+            showToast(days > 0 ? `${days} gün premium verildi!` : 'Premium sıfırlandı.');
+            $('admin-premium-modal').classList.add('hidden');
+            openSubView('setting-admin'); // Listeyi yenile
+        } else {
+            showToast('İşlem başarısız.');
+        }
+    } catch {
+        showToast('Bağlantı hatası.');
+    } finally {
+        btn.textContent = original;
+        btn.disabled = false;
+    }
+};
+
+// ---------- SIRALAMA HESAPLAYICI ----------
+let calcType = 'sayisal';
+document.querySelectorAll('.calc-type-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.calc-type-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        calcType = btn.dataset.type;
+        const label = $('calc-ayt-label');
+        if (calcType === 'sayisal') label.textContent = 'AYT Sayısal Net (0-80):';
+        else if (calcType === 'ea') label.textContent = 'AYT Eşit Ağırlık Net (0-80):';
+        else label.textContent = 'AYT Sözel Net (0-80):';
+    });
+});
+
+$('calc-btn')?.addEventListener('click', () => {
+    const tyt = parseFloat($('calc-tyt').value) || 0;
+    const ayt = parseFloat($('calc-ayt').value) || 0;
+    
+    if (tyt === 0 && ayt === 0) { showToast('Lütfen netlerinizi girin.'); return; }
+
+    const weightedNet = (tyt * 0.4) + (ayt * 0.6);
+    let score = 100 + (weightedNet * 3.33);
+    if (score > 500) score = 500;
+
+    let rank = Math.round(2600000 * Math.exp(-0.025 * score));
+    if (rank < 1) rank = 1;
+    
+    const formattedRank = rank.toLocaleString('tr-TR');
+    const formattedScore = score.toFixed(3).replace('.', ',');
+
+    const resultEl = $('calc-result');
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = `
+        <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 8px;">Tahmini Yerleştirme Puanı: ${formattedScore}</div>
+        <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 8px;">Tahmini Başarı Sırası:</div>
+        <div style="font-size: 32px; color: var(--accent);">${formattedRank}. <span style="font-size:18px;">kişi</span></div>
+        <div class="small muted" style="margin-top: 12px; font-size: 11px;">* Bu sonuç geçmiş yılların verilerine dayalı bir simülasyondur, kesin sonuç vermez.</div>
+    `;
 });
 
 // ---------- GERİ SAYIM ----------
@@ -362,7 +460,7 @@ function switchTab(tabId) {
     const nav = document.querySelector(`.nav-item[data-tab="${tabId}"]`); if (nav) nav.classList.add('active');
     const isSubPage = tabId.startsWith('setting-'); if (isSubPage) { const s = document.querySelector('.nav-item[data-tab="settings"]'); if(s) s.classList.add('active'); }
     if (tabId === 'archive') loadArchive();
-    if (tabId === 'panel') { renderStats(); startCountdown(); fetchStatus(); }
+    if (tabId === 'panel') { renderStats(); startCountdown(); fetchStatus(); loadLeaderboard(); }
     if (tabId === 'solve') scrollEnd($('chat-history'));
     if (tabId === 'coach') scrollEnd($('coach-messages'));
     if (tabId === 'settings') fetchStatus();
@@ -499,7 +597,14 @@ function renderArchiveList() {
     list.innerHTML = items.map((item, i) => { 
         const date = new Date(item.created_at).toLocaleDateString('tr-TR'); 
         let imgSrc = item.image;
-        if (imgSrc && !imgSrc.startsWith('http') && !imgSrc.startsWith('data:')) { imgSrc = 'data:image/jpeg;base64,' + imgSrc; }
+        if (imgSrc) {
+            if (imgSrc.includes('r2.dev')) {
+                imgSrc = imgSrc.replace(/https:\/\/pub-[a-zA-Z0-9]+\.r2\.dev/, 'https://resim.yksorumatik.com.tr');
+            }
+            if (!imgSrc.startsWith('http') && !imgSrc.startsWith('data:')) { 
+                imgSrc = 'data:image/jpeg;base64,' + imgSrc; 
+            }
+        }
         return `<div class="glass-card" style="margin-bottom:14px">
             <img class="arch-img" src="${imgSrc}" alt="Soru" onerror="this.src='https://via.placeholder.com/300x150/0b1020/ffffff?text=Fotoğraf+Yüklenemedi'">
             <div class="arch-meta"><span class="arch-tag">${escapeHtml(item.subject)}</span><span class="small muted">${date}</span></div>
@@ -542,7 +647,6 @@ $('generate-pdf-btn').addEventListener('click', async () => {
         const fetchAsBase64 = async (url) => {
             if (!url || url.startsWith('data:')) return url;
             try {
-                // Eski r2.dev linkleri yerine yeni domaini kullanmayı dene
                 if (url.includes('r2.dev')) {
                     url = url.replace(/https:\/\/pub-[a-zA-Z0-9]+\.r2\.dev/, 'https://resim.yksorumatik.com.tr');
                 }
@@ -556,17 +660,15 @@ $('generate-pdf-btn').addEventListener('click', async () => {
                 });
             } catch (err) {
                 console.error("Resim Base64'e çevrilemedi:", url, err);
-                return url; // Hata olursa orijinal URL'i kullan (kırık çıksa da)
+                return url;
             }
         };
 
         btn.textContent = 'Resimler İşleniyor... ⏳';
 
-        // Resimleri tek tek çek ve base64 listesi oluştur
         const imagePromises = filtered.map(q => fetchAsBase64(q.image));
         const base64Images = await Promise.all(imagePromises);
         
-        // YENİ PENCERE İÇİN HTML OLUŞTUR
         let html = `
         <!DOCTYPE html>
         <html lang="tr">
@@ -606,10 +708,9 @@ $('generate-pdf-btn').addEventListener('click', async () => {
             <h3>SORULAR</h3>
         `;
         
-        // Soruları Ekle
         for (let i = 0; i < filtered.length; i++) {
             let q = filtered[i];
-            let imgSrc = base64Images[i]; // Base64 formatındaki resmi kullan
+            let imgSrc = base64Images[i];
             
             html += `
             <div class="question-block">
@@ -618,7 +719,6 @@ $('generate-pdf-btn').addEventListener('click', async () => {
             </div>`;
         }
         
-        // Çözümler Kısmı
         html += `<div class="page-break"></div><h3>ÇÖZÜMLER</h3>`;
         
         filtered.forEach((q, i) => { 
@@ -647,7 +747,6 @@ $('generate-pdf-btn').addEventListener('click', async () => {
         </body>
         </html>`;
 
-        // YENİ PENCERE AÇ VE HTML'İ YAZDIR
         const printWindow = window.open('', '_blank');
         printWindow.document.open();
         printWindow.document.write(html);
@@ -667,6 +766,7 @@ $('quota-chip').addEventListener('click', () => { switchTab('settings'); openSub
 
 // ---------- Başlangıç ----------
 fetchStatus().then(() => { renderStats(); startCountdown(); });
+
 // ---------- PWA SERVICE WORKER KAYDI ----------
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {

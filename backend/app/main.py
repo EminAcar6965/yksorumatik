@@ -449,3 +449,60 @@ async def shopier_webhook(request: Request):
     except Exception as e:
         print(f"❌ Shopier Webhook Hatası: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+# --- YENİ: LİDERLİK TABLOSU ---
+@app.get("/api/leaderboard")
+def get_leaderboard(request: Request, response: Response):
+    try:
+        # Son 7 günün tarihini al (UTC)
+        seven_days_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+        
+        # Son 7 gündeki çözülen soruları bul
+        res = supabase_admin.table("questions").select("uid").gte("created_at", seven_days_ago).execute()
+        if not res.data: return []
+        
+        # Hangi kullanıcı kaç soru çözmüş say
+        counts = {}
+        for row in res.data:
+            uid = row["uid"]
+            counts[uid] = counts.get(uid, 0) + 1
+            
+        # En çok çözen ilk 10 kişiyi al
+        top_uids = sorted(counts.items(), key=lambda x: x[1], reverse=True)[:10]
+        
+        # İsimlerini bulmak için kullanıcıları çek
+        uids = [u[0] for u in top_uids]
+        users_res = supabase_admin.table("users").select("uid, name").in_("uid", uids).execute()
+        users_dict = {u["uid"]: u for u in users_res.data}
+        
+        leaderboard = []
+        for uid, count in top_uids:
+            name = users_dict.get(uid, {}).get("name") or "İsimsiz Öğrenci"
+            leaderboard.append({"name": name, "count": count})
+            
+        return leaderboard
+    except Exception as e:
+        print("Liderlik Hatası:", e)
+        return []
+
+# --- YENİ: ADMİN TARAFINDAN MANUEL PREMIUM VERME ---
+@app.post("/api/admin/give-premium")
+async def admin_give_premium(request: Request, response: Response):
+    user = get_user(request, response)
+    if user.get("role") != "admin": raise HTTPException(403, "Yetkisiz erişim.")
+    
+    data = await request.json()
+    email = data.get("email")
+    days = int(data.get("days", 0))
+    
+    if not email: raise HTTPException(400, "E-posta gerekli.")
+    
+    res = supabase_admin.table("users").select("*").eq("email", email).execute()
+    if not res.data: raise HTTPException(404, "Kullanıcı bulunamadı.")
+    
+    target = res.data[0]
+    # Eğer süresi geçmişse bugünden, geçmemişse mevcut tarihten itibaren ekle
+    base = max(time.time(), target.get("premium_until") or 0)
+    new_premium = int(base + days * 86400)
+    
+    supabase_admin.table("users").update({"premium_until": new_premium, "plan": "manuel_admin"}).eq("email", email).execute()
+    return {"ok": True, "message": f"{days} gün premium verildi."}

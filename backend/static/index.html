@@ -10,6 +10,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
+    <link rel="icon" type="image/png" href="/static/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
@@ -95,6 +96,12 @@
       <div class="glass-card" id="analytics-card">
         <div class="card-title">📊 Zayıf Noktalarım (Konu Analizi)</div>
         <div id="analytics-content" class="muted small" style="line-height: 1.6;">Yükleniyor...</div>
+      </div>
+
+      <!-- HAFTALIK LİDERLİK TABLOSU -->
+      <div class="glass-card" id="leaderboard-card">
+        <div class="card-title">🏆 Haftalık Liderlik Tablosu</div>
+        <div id="leaderboard-content" class="muted small" style="line-height: 1.8;">Yükleniyor...</div>
       </div>
     </section>
 
@@ -193,6 +200,16 @@
             <div class="setting-arrow">›</div>
           </div>
 
+          <!-- SIRALAMA HESAPLAYICI MENÜSÜ -->
+          <div class="setting-item" data-target="setting-calculator">
+            <div class="setting-icon">🧮</div>
+            <div class="setting-content">
+              <div class="setting-title">YKS Sıralama Hesaplayıcı</div>
+              <div class="setting-desc">Netlerini gir, tahmini sıralamanı gör</div>
+            </div>
+            <div class="setting-arrow">›</div>
+          </div>
+
           <div class="setting-item" data-target="setting-invite">
             <div class="setting-icon">🎁</div>
             <div class="setting-content">
@@ -257,7 +274,7 @@
       <div id="account-page-content" class="glass-card"></div>
     </section>
 
-        <!-- PREMIUM SAYFASI (SHOPIER ENTEGRASYONU EKLENDİ) -->
+    <!-- PREMIUM SAYFASI -->
     <section class="view" id="view-setting-premium">
       <div class="subpage-header"><button class="back-btn" data-back="settings">←</button><h2>Premium Paketler</h2></div>
       
@@ -274,11 +291,10 @@
             <li>Yanlışlardan sınırsız deneme sınavı PDF'i</li>
             <li>7 gün boyunca kesintisiz erişim</li>
           </ul>
-          <!-- 1 HAFTALIK GERÇEK LİNK -->
           <a href="https://www.shopier.com/yksorumatik/52174634" target="_blank" class="primary-btn full" style="text-decoration: none; display: block; text-align: center; padding: 12px; border-radius: 8px;">Hemen Satın Al</a>
         </div>
 
-        <!-- 1 AYLIK PAKET (İNDİRİMLİ) -->
+        <!-- 1 AYLIK PAKET -->
         <div class="glass-card" style="border: 2px solid var(--neon-blue); position: relative; overflow: hidden;">
           <div style="position: absolute; top: 0; right: 0; background: var(--neon-blue); color: #000; font-size: 10px; font-weight: bold; padding: 4px 12px; border-bottom-left-radius: 8px;">EN ÇOK TERCİH EDİLEN</div>
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; margin-top: 8px;">
@@ -293,11 +309,10 @@
             <li>Yanlışlardan sınırsız deneme sınavı PDF'i</li>
             <li>30 gün boyunca kesintisiz erişim</li>
           </ul>
-          <!-- 1 AYLIK GERÇEK LİNK -->
           <a href="https://www.shopier.com/yksorumatik/52174930" target="_blank" class="primary-btn full" style="text-decoration: none; display: block; text-align: center; padding: 12px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0, 255, 255, 0.3);">Hemen Satın Al</a>
         </div>
 
-        <!-- 1 SENELİK PAKET (İNDİRİMLİ) -->
+        <!-- 1 SENELİK PAKET -->
         <div class="glass-card" style="border: 1px solid var(--glass-border);">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
             <h3 style="margin: 0; font-size: 18px;">1 Senelik Premium</h3>
@@ -312,14 +327,43 @@
             <li>365 gün boyunca kesintisiz erişim</li>
             <li><strong>Fiyat performansı en yüksek paket</strong></li>
           </ul>
-          <!-- 1 SENELİK GERÇEK LİNK -->
           <a href="https://www.shopier.com/yksorumatik/52174982" target="_blank" class="primary-btn full" style="text-decoration: none; display: block; text-align: center; padding: 12px; border-radius: 8px;">Hemen Satın Al</a>
         </div>
 
         <p class="muted small" style="text-align: center; margin-top: 8px;">
           * Satın alma işlemleri Shopier altyapısı ile güvenli bir şekilde gerçekleştirilir. Ödemeniz onaylandıktan sonra üyeliğiniz otomatik olarak aktif edilir.
         </p>
+      </div>
+    </section>
 
+    <!-- SIRALAMA HESAPLAYICI SAYFASI -->
+    <section class="view" id="view-setting-calculator">
+      <div class="subpage-header"><button class="back-btn" data-back="settings">←</button><h2>Sıralama Hesaplayıcı</h2></div>
+      
+      <div style="padding: 0 16px;">
+        <div class="glass-card">
+          <div style="display: flex; gap: 8px; margin-bottom: 20px;">
+            <button class="cat-btn calc-type-btn active" data-type="sayisal" style="flex:1; padding: 10px; font-size:12px;">Sayısal</button>
+            <button class="cat-btn calc-type-btn" data-type="ea" style="flex:1; padding: 10px; font-size:12px;">E.Ağırlık</button>
+            <button class="cat-btn calc-type-btn" data-type="sozel" style="flex:1; padding: 10px; font-size:12px;">Sözel</button>
+          </div>
+          
+          <div style="margin-bottom: 16px;">
+            <label class="small muted">TYT Net (0-120):</label>
+            <input type="number" id="calc-tyt" class="text-input" placeholder="Örn: 80" min="0" max="120" step="0.25" style="width: 100%; box-sizing: border-box; padding: 12px; border-radius: 8px; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); color: white; margin-top: 4px;">
+          </div>
+          
+          <div style="margin-bottom: 16px;">
+            <label class="small muted" id="calc-ayt-label">AYT Sayısal Net (0-80):</label>
+            <input type="number" id="calc-ayt" class="text-input" placeholder="Örn: 60" min="0" max="80" step="0.25" style="width: 100%; box-sizing: border-box; padding: 12px; border-radius: 8px; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); color: white; margin-top: 4px;">
+          </div>
+          
+          <button id="calc-btn" class="primary-btn full" style="margin-top: 10px;">Sıralamayı Hesapla</button>
+          
+          <div id="calc-result" style="margin-top: 20px; font-size: 22px; font-weight: 800; text-align: center; color: var(--neon-blue); display: none; padding: 16px; background: rgba(0,255,255,0.1); border-radius: 8px;">
+            <!-- Sonuç buraya gelecek -->
+          </div>
+        </div>
       </div>
     </section>
 
@@ -497,6 +541,23 @@
     <button id="auth-submit" class="primary-btn full">Giriş Yap</button>
     <button id="auth-switch" class="ghost-btn full">Hesabın yok mu? Kayıt Ol</button>
     <button id="auth-close" class="ghost-btn full">Kapat</button>
+  </div>
+</div>
+
+<!-- ADMIN PREMIUM MODAL -->
+<div id="admin-premium-modal" class="modal hidden">
+  <div class="modal-box" style="max-width: 350px; text-align: center;">
+    <h3 style="margin-bottom: 8px;">Premium Ver</h3>
+    <p class="small muted" id="admin-modal-name" style="margin-bottom: 20px;">Kullanıcı Adı</p>
+    
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <button class="primary-btn full" onclick="giveAdminPremium(7)">1 Haftalık Ekle</button>
+      <button class="primary-btn full" onclick="giveAdminPremium(30)">1 Aylık Ekle</button>
+      <button class="primary-btn full" onclick="giveAdminPremium(365)">1 Senelik Ekle</button>
+      <button class="ghost-btn full" style="color: var(--coral); border-color: var(--coral);" onclick="giveAdminPremium(-9999)">Premium'u İptal Et / Sıfırla</button>
+    </div>
+    
+    <button class="ghost-btn full" style="margin-top: 16px;" onclick="document.getElementById('admin-premium-modal').classList.add('hidden')">Kapat</button>
   </div>
 </div>
 

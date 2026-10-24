@@ -110,8 +110,20 @@ async function fetchStatus() {
 
 function updateUI() {
     const text = $('quota-text');
-    if (userStatus.is_premium) { text.textContent = 'Sınırsız 💎'; text.style.color = 'var(--neon-blue)'; } 
-    else { text.innerHTML = `Kalan Hak: <strong>${userStatus.remaining}</strong>`; text.style.color = userStatus.remaining === 0 ? 'var(--coral)' : 'var(--accent)'; }
+    
+    // SINIRSIZ YAZISI KORUNDU
+    if (userStatus.role === 'admin') { 
+        text.textContent = 'Sınırsız (Admin) 🛡️'; 
+        text.style.color = 'var(--neon-blue)'; 
+    } 
+    else if (userStatus.is_premium) { 
+        text.textContent = 'Sınırsız 💎'; 
+        text.style.color = 'var(--neon-blue)'; 
+    } 
+    else { 
+        text.innerHTML = `Kalan Hak: <strong>${userStatus.remaining}</strong>`; 
+        text.style.color = userStatus.remaining === 0 ? 'var(--coral)' : 'var(--accent)'; 
+    }
     
     const h = new Date().getHours();
     const part = h < 6 ? 'İyi geceler' : h < 12 ? 'Günaydın' : h < 18 ? 'İyi günler' : 'İyi akşamlar';
@@ -246,8 +258,6 @@ function openSubView(targetId) {
         if (userStatus.is_premium && userStatus.premium_until) {
             const daysLeft = Math.max(0, Math.ceil((userStatus.premium_until * 1000 - Date.now()) / (1000 * 60 * 60 * 24))); const d = new Date(userStatus.premium_until * 1000).toLocaleDateString('tr-TR');
             el.innerHTML = `<div class="glass-card" style="text-align:center; border-color:var(--neon-blue);"><div style="font-size:48px; font-weight:800; color:var(--neon-blue);">${daysLeft}</div><div class="muted small">gün kaldı</div><div class="small" style="margin-top:8px;">Bitiş Tarihi: ${d}</div></div>`;
-        } else {
-            // Statik HTML kullanılıyor
         }
     }
 
@@ -527,7 +537,15 @@ async function solveImage(note) {
     formData.append('file', fileToSend, 'soru.jpg'); formData.append('subject', subject); formData.append('note', note);
     try {
         const response = await fetch('/solve', { method: 'POST', headers: authHeaders(), body: formData }); const data = await response.json().catch(() => ({})); typing.remove();
-        if (!response.ok || !data.answer) { const msg = [data.error, data.detail].find((m) => typeof m === 'string') || 'Çözüm hazırlanamadı.'; if (response.status === 403) { showToast('Hakkın doldu.'); switchTab('settings'); openSubView('setting-premium'); } addMessage(chatHistory, { role: 'ai', body: escapeHtml(msg), cls: 'error' }); } 
+        if (!response.ok || !data.answer) { 
+            const msg = [data.error, data.detail].find((m) => typeof m === 'string') || 'Çözüm hazırlanamadı.'; 
+            if (response.status === 403) { 
+                showToast(msg);
+                // Premium ise premium sayfasına atmasın
+                if (!userStatus.is_premium) { switchTab('settings'); openSubView('setting-premium'); }
+            } 
+            addMessage(chatHistory, { role: 'ai', body: escapeHtml(msg), cls: 'error' }); 
+        } 
         else { thread = { subject, note, solution: data.answer, history: [] }; addAiTypewriter(chatHistory, data.answer, ABI_AVATAR); addFeedbackRow(); applyStatus(data); }
     } catch { typing.remove(); addMessage(chatHistory, { role: 'ai', body: 'Bağlantı kurulamadı.', cls: 'error' }); } finally { setSending(false); scrollEnd(chatHistory); }
 }
@@ -537,7 +555,14 @@ async function askFollowup(text) {
     try {
         const data = await postJson('/followup', { subject: thread.subject, note: thread.note, solution: thread.solution, history: thread.history.slice(-10), message: text });
         typing.remove(); thread.history.push({ role: 'user', content: text }, { role: 'assistant', content: data.answer }); addAiTypewriter(chatHistory, data.answer, ABI_AVATAR); addFeedbackRow(); applyStatus(data);
-    } catch (err) { typing.remove(); if (err.status === 403) { showToast('Hakkın doldu.'); switchTab('settings'); openSubView('setting-premium'); } addMessage(chatHistory, { role: 'ai', body: escapeHtml(err.message), cls: 'error' }); } finally { setSending(false); scrollEnd(chatHistory); }
+    } catch (err) { 
+        typing.remove(); 
+        if (err.status === 403) { 
+            showToast(err.message); 
+            if (!userStatus.is_premium) { switchTab('settings'); openSubView('setting-premium'); }
+        } 
+        addMessage(chatHistory, { role: 'ai', body: escapeHtml(err.message), cls: 'error' }); 
+    } finally { setSending(false); scrollEnd(chatHistory); }
 }
 
 function addFeedbackRow() {
@@ -643,7 +668,6 @@ $('generate-pdf-btn').addEventListener('click', async () => {
         if (filtered.length === 0) { showToast('Seçtiğin derslerde arşivde soru yok.'); return; } 
         filtered = filtered.sort(() => 0.5 - Math.random()).slice(0, count);
 
-        // --- RESİMLERİ BASE64'E ÇEVİRME FONKSİYONU ---
         const fetchAsBase64 = async (url) => {
             if (!url || url.startsWith('data:')) return url;
             try {

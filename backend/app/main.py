@@ -1,9 +1,9 @@
-import os, uuid, time, base64, io, jwt, bcrypt, random, string
+import os, uuid, time, base64, io, jwt, bcrypt, random, string, json
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from fastapi import FastAPI, Request, Response, File, Form, UploadFile, HTTPException
-from fastapi.responses import FileResponse, PlainTextResponse # PlainTextResponse EKLENDİ
+from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from google import genai
 from google.genai import types
@@ -419,7 +419,7 @@ def history(request: Request, response: Response, pdf: int = 0):
     res = supabase.table("questions").select("*").eq("uid", user["uid"]).order("id", desc=True).limit(200 if pdf else 60).execute()
     return res.data
 
-# --- SHOPIER WEBHOOK ENTEGRASYONU (GÜNCELLENDİ) ---
+# --- SHOPIER WEBHOOK ENTEGRASYONU (BASE64 ÇÖZÜCÜ EKLENDİ) ---
 @app.post("/api/shopier-webhook")
 async def shopier_webhook(request: Request):
     try:
@@ -430,15 +430,35 @@ async def shopier_webhook(request: Request):
             form_data = await request.form()
             data = dict(form_data)
 
-        # Gelen veriyi loglara yazdır (Test aşamasında ne geldiğini görmek için)
+        # Gelen veriyi loglara yazdır
         print(f"📩 SHOPIER WEBHOOK GELDİ: {data}")
 
-        buyer_email = data.get("buyer_email") or data.get("email") or data.get("customer_email")
-        product_id = str(data.get("product_id") or data.get("productId") or data.get("product").get("id") if data.get("product") else data.get("product_id"))
+        # Shopier veriyi 'res' alanı içinde Base64 olarak şifreli gönderiyor
+        raw_res = data.get("res")
         
+        if not raw_res:
+            print("Hata: 'res' alanı bulunamadı.")
+            return PlainTextResponse("success")
+
+        # Base64 şifresini çöz ve JSON'a dönüştür
+        decoded_bytes = base64.b64decode(raw_res)
+        decoded_str = decoded_bytes.decode('utf-8')
+        order_data = json.loads(decoded_str)
+        
+        print(f"🔓 ÇÖZÜLEN SİPARİŞ VERİSİ: {order_data}")
+
+        buyer_email = order_data.get("email")
+        product_id = str(order_data.get("productid"))
+        is_test = order_data.get("istest")
+        
+        # Eğer bu bir test siparişiyse üyeliği verme, sadece başarılı dön
+        if is_test == 1 or is_test == "1":
+            print("ℹ️ Bu bir test siparişi, üyelik verilmedi.")
+            return PlainTextResponse("success")
+
         if not buyer_email:
-            print("Hata: E-posta bulunamadı (Boş test isteği olabilir).")
-            return PlainTextResponse("success") # Testin geçmesi için başarılı dön
+            print("Hata: E-posta bulunamadı.")
+            return PlainTextResponse("success")
 
         product_mapping = {
             "52174634": (7, "weekly"),
@@ -469,12 +489,10 @@ async def shopier_webhook(request: Request):
 
         print(f"✅ Başarılı: {buyer_email} kullanıcısına {eklenecek_gun} gün ({plan_adi}) eklendi.")
         
-        # Shopier'in testi geçmesi için düz metin dönüyoruz
         return PlainTextResponse("success")
 
     except Exception as e:
         print(f"❌ Shopier Webhook Hatası: {str(e)}")
-        # Hata olsa bile Shopier 200 OK görsün ki test başarılı olsun
         return PlainTextResponse("success")
 
 # --- LİDERLİK TABLOSU ---

@@ -419,7 +419,7 @@ def history(request: Request, response: Response, pdf: int = 0):
     res = supabase.table("questions").select("*").eq("uid", user["uid"]).order("id", desc=True).limit(200 if pdf else 60).execute()
     return res.data
 
-# --- SHOPIER WEBHOOK ENTEGRASYONU (BASE64 ÇÖZÜCÜ EKLENDİ) ---
+# --- SHOPIER WEBHOOK ENTEGRASYONU ---
 @app.post("/api/shopier-webhook")
 async def shopier_webhook(request: Request):
     try:
@@ -430,17 +430,14 @@ async def shopier_webhook(request: Request):
             form_data = await request.form()
             data = dict(form_data)
 
-        # Gelen veriyi loglara yazdır
         print(f"📩 SHOPIER WEBHOOK GELDİ: {data}")
 
-        # Shopier veriyi 'res' alanı içinde Base64 olarak şifreli gönderiyor
         raw_res = data.get("res")
         
         if not raw_res:
             print("Hata: 'res' alanı bulunamadı.")
             return PlainTextResponse("success")
 
-        # Base64 şifresini çöz ve JSON'a dönüştür
         decoded_bytes = base64.b64decode(raw_res)
         decoded_str = decoded_bytes.decode('utf-8')
         order_data = json.loads(decoded_str)
@@ -451,7 +448,6 @@ async def shopier_webhook(request: Request):
         product_id = str(order_data.get("productid"))
         is_test = order_data.get("istest")
         
-        # Eğer bu bir test siparişiyse üyeliği verme, sadece başarılı dön
         if is_test == 1 or is_test == "1":
             print("ℹ️ Bu bir test siparişi, üyelik verilmedi.")
             return PlainTextResponse("success")
@@ -460,6 +456,23 @@ async def shopier_webhook(request: Request):
             print("Hata: E-posta bulunamadı.")
             return PlainTextResponse("success")
 
+        # KUPON KODU KONTROLÜ VE KAYIT
+        coupon_code = order_data.get("coupon") or order_data.get("coupon_code") or order_data.get("discount_code")
+        amount = order_data.get("price", 0)
+        
+        if coupon_code:
+            try:
+                supabase_admin.table("affiliate_sales").insert({
+                    "buyer_email": buyer_email,
+                    "coupon_code": coupon_code.upper(),
+                    "product_id": product_id,
+                    "amount": float(amount)
+                }).execute()
+                print(f"💾 Satış affiliate_sales tablosuna kaydedildi: {coupon_code}")
+            except Exception as e:
+                print(f"❌ Satış kaydedilemedi: {e}")
+
+        # ÜYELİK VERME İŞLEMİ
         product_mapping = {
             "52174634": (7, "weekly"),
             "52174930": (30, "monthly"),
@@ -494,6 +507,30 @@ async def shopier_webhook(request: Request):
     except Exception as e:
         print(f"❌ Shopier Webhook Hatası: {str(e)}")
         return PlainTextResponse("success")
+
+# --- İŞ ORTAĞI (AFFILIATE) SATIŞ TAKİBİ ---
+@app.get("/api/admin/affiliates")
+def get_affiliates(request: Request, response: Response, period: str = "all", code: str = ""):
+    user = get_user(request, response)
+    if user.get("role") != "admin": raise HTTPException(403, "Yetkisiz erişim.")
+    
+    try:
+        now = datetime.now(timezone.utc)
+        if period == "week": start_date = now - timedelta(days=7)
+        elif period == "month": start_date = now - timedelta(days=30)
+        elif period == "year": start_date = now - timedelta(days=365)
+        else: start_date = datetime(2020, 1, 1, tzinfo=timezone.utc)
+
+        query = supabase_admin.table("affiliate_sales").select("*").gte("created_at", start_date.isoformat()).order("created_at", desc=True)
+        
+        if code:
+            query = query.ilike("coupon_code", f"%{code}%")
+            
+        res = query.execute()
+        return res.data
+    except Exception as e:
+        print("Affiliate Fetch Error:", e)
+        return []
 
 # --- LİDERLİK TABLOSU ---
 @app.get("/api/leaderboard")

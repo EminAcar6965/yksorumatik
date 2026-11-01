@@ -111,7 +111,6 @@ async function fetchStatus() {
 function updateUI() {
     const text = $('quota-text');
     
-    // SINIRSIZ YAZISI KORUNDU
     if (userStatus.role === 'admin') { 
         text.textContent = 'Sınırsız (Admin) 🛡️'; 
         text.style.color = 'var(--neon-blue)'; 
@@ -280,6 +279,8 @@ function openSubView(targetId) {
                 renderAdminUserList();
             })
             .catch(() => { el.innerHTML = '<p class="muted small" style="color:var(--coral);">İstatistikler yüklenemedi.</p>'; });
+            
+        loadAffiliateSales(); // İş ortağı satışlarını yükle
     }
 }
 document.querySelectorAll('.setting-item').forEach(item => item.addEventListener('click', () => openSubView(item.dataset.target)));
@@ -370,6 +371,61 @@ window.giveAdminPremium = async function(days) {
     }
 };
 
+// ---------- İŞ ORTAĞI / KUPON TAKİBİ ----------
+async function loadAffiliateSales() {
+    const el = $('affiliate-sales-list'); if (!el) return;
+    const period = $('affiliate-period-filter')?.value || 'all';
+    const code = $('affiliate-code-search')?.value || '';
+    
+    el.innerHTML = '<p class="muted small">Yükleniyor...</p>';
+    
+    try {
+        const res = await fetch(`/api/admin/affiliates?period=${period}&code=${code}`, { headers: authHeaders() });
+        const data = await res.json();
+        
+        if (!data || data.length === 0) {
+            el.innerHTML = '<p class="muted small">Bu kriterlerde satış bulunamadı.</p>';
+            return;
+        }
+        
+        // Kodları gruplayıp sayalım
+        const grouped = {};
+        data.forEach(sale => {
+            const c = sale.coupon_code || 'KODSUZ';
+            if (!grouped[c]) grouped[c] = { count: 0, total: 0, sales: [] };
+            grouped[c].count += 1;
+            grouped[c].total += Number(sale.amount);
+            grouped[c].sales.push(sale);
+        });
+        
+        let html = '';
+        for (const [code, stats] of Object.entries(grouped)) {
+            html += `
+            <div style="background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 8px; padding: 12px; margin-bottom: 8px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <strong style="color: var(--neon-blue); font-size: 15px;">${code}</strong>
+                    <span class="small muted">${stats.count} Satış | ${stats.total.toFixed(2)} ₺</span>
+                </div>
+                <div style="margin-top:8px; display:flex; flex-direction:column; gap:4px;">
+                    ${stats.sales.map(s => `<div class="small muted">• ${new Date(s.created_at).toLocaleDateString('tr-TR')} - ${s.buyer_email} (${s.amount} ₺)</div>`).join('')}
+                </div>
+            </div>`;
+        }
+        el.innerHTML = html;
+        
+    } catch (e) {
+        el.innerHTML = '<p class="muted small" style="color:var(--coral);">Satış verileri yüklenemedi.</p>';
+    }
+}
+
+// Filtre değiştiğinde listeyi yenile
+document.addEventListener('change', (e) => {
+    if (e.target.id === 'affiliate-period-filter') loadAffiliateSales();
+});
+document.addEventListener('input', (e) => {
+    if (e.target.id === 'affiliate-code-search') loadAffiliateSales();
+});
+
 // ---------- SIRALAMA HESAPLAYICI ----------
 let calcType = 'sayisal';
 document.querySelectorAll('.calc-type-btn').forEach(btn => {
@@ -387,26 +443,67 @@ document.querySelectorAll('.calc-type-btn').forEach(btn => {
 $('calc-btn')?.addEventListener('click', () => {
     const tyt = parseFloat($('calc-tyt').value) || 0;
     const ayt = parseFloat($('calc-ayt').value) || 0;
+    const diploma = parseFloat($('calc-diploma')?.value) || 0;
     
-    if (tyt === 0 && ayt === 0) { showToast('Lütfen netlerinizi girin.'); return; }
+    if (tyt === 0 && ayt === 0) { showToast('Lütfen en az bir net değeri girin.'); return; }
 
-    const weightedNet = (tyt * 0.4) + (ayt * 0.6);
-    let score = 100 + (weightedNet * 3.33);
-    if (score > 500) score = 500;
+    let hamPuan = 100 + (tyt * 1.32) + (ayt * 3.08);
+    if (hamPuan > 500) hamPuan = 500;
 
-    let rank = Math.round(2600000 * Math.exp(-0.025 * score));
-    if (rank < 1) rank = 1;
+    let obpKatkisi = 0;
+    if (diploma >= 50 && diploma <= 100) { obpKatkisi = diploma * 5 * 0.12; }
     
-    const formattedRank = rank.toLocaleString('tr-TR');
-    const formattedScore = score.toFixed(3).replace('.', ',');
+    let yerPuan = hamPuan + obpKatkisi;
+    if (yerPuan > 560) yerPuan = 560;
+
+    const rankTable = [
+        { puan: 560, rank: 1 }, { puan: 540, rank: 500 }, { puan: 520, rank: 5000 }, { puan: 500, rank: 15000 }, 
+        { puan: 480, rank: 35000 }, { puan: 460, rank: 65000 }, { puan: 440, rank: 110000 }, { puan: 420, rank: 175000 }, 
+        { puan: 400, rank: 260000 }, { puan: 380, rank: 370000 }, { puan: 360, rank: 500000 }, { puan: 340, rank: 660000 }, 
+        { puan: 320, rank: 850000 }, { puan: 300, rank: 1050000 }, { puan: 280, rank: 1300000 }, { puan: 260, rank: 1550000 }, 
+        { puan: 240, rank: 1800000 }, { puan: 220, rank: 2050000 }, { puan: 200, rank: 2300000 }
+    ];
+
+    let tahminiSira = 0;
+    if (yerPuan >= 560) { tahminiSira = 1; }
+    else if (yerPuan <= 200) { tahminiSira = 2300000; }
+    else {
+        for (let i = 0; i < rankTable.length - 1; i++) {
+            if (yerPuan <= rankTable[i].puan && yerPuan >= rankTable[i+1].puan) {
+                const yuksekPuan = rankTable[i].puan; const dusukPuan = rankTable[i+1].puan;
+                const yuksekSira = rankTable[i].rank; const dusukSira = rankTable[i+1].rank;
+                const oran = (yuksekPuan - yerPuan) / (yuksekPuan - dusukPuan);
+                tahminiSira = Math.round(yuksekSira + oran * (dusukSira - yuksekSira));
+                break;
+            }
+        }
+    }
+
+    const formattedHam = hamPuan.toFixed(3).replace('.', ',');
+    const formattedYer = yerPuan.toFixed(3).replace('.', ',');
+    const formattedObp = obpKatkisi.toFixed(2).replace('.', ',');
+    const formattedSira = tahminiSira.toLocaleString('tr-TR');
 
     const resultEl = $('calc-result');
     resultEl.style.display = 'block';
     resultEl.innerHTML = `
-        <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 8px;">Tahmini Yerleştirme Puanı: ${formattedScore}</div>
-        <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 8px;">Tahmini Başarı Sırası:</div>
-        <div style="font-size: 32px; color: var(--accent);">${formattedRank}. <span style="font-size:18px;">kişi</span></div>
-        <div class="small muted" style="margin-top: 12px; font-size: 11px;">* Bu sonuç geçmiş yılların verilerine dayalı bir simülasyondur, kesin sonuç vermez.</div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
+            <span class="muted small">Sınav Ham Puanı:</span>
+            <span style="font-weight: 600;">${formattedHam}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
+            <span class="muted small">OBP Katkısı:</span>
+            <span style="font-weight: 600; color: var(--neon-green);">+${formattedObp}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 16px;">
+            <span style="color: var(--neon-blue); font-weight: 600;">Yerleştirme Puanı:</span>
+            <span style="font-weight: 800; font-size: 18px; color: var(--neon-blue);">${formattedYer}</span>
+        </div>
+        <div style="text-align: center; background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px;">
+            <div class="small muted" style="margin-bottom: 4px;">Tahmini Başarı Sırası</div>
+            <div style="font-size: 26px; font-weight: 800; color: var(--accent);">${formattedSira}. <span style="font-size:16px;">kişi</span></div>
+        </div>
+        <div class="small muted" style="margin-top: 12px; font-size: 11px; text-align: center;">* Sonuçlar 2026-YKS Sayısal Bilgiler ve hedef tabloları baz alınarak yapılan tahmini hesaplamadır.</div>
     `;
 });
 
@@ -541,7 +638,6 @@ async function solveImage(note) {
             const msg = [data.error, data.detail].find((m) => typeof m === 'string') || 'Çözüm hazırlanamadı.'; 
             if (response.status === 403) { 
                 showToast(msg);
-                // Premium ise premium sayfasına atmasın
                 if (!userStatus.is_premium) { switchTab('settings'); openSubView('setting-premium'); }
             } 
             addMessage(chatHistory, { role: 'ai', body: escapeHtml(msg), cls: 'error' }); 
